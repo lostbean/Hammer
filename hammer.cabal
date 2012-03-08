@@ -1,0 +1,45 @@
+name:           hammer
+version:        0.1.1
+cabal-version:  >= 1.4
+build-type:     Simple
+license:        GPL-3
+license-file:   LICENSE
+maintainer:     Edgar Gomes de Araujo
+
+stability:      experimental
+homepage:
+package-url:
+bug-reports:    talktoedgar@gmail.com
+synopsis:       Basic tools for microstructure and texture in polycrystal materials
+description: Library with tools for metalurgical research. Includes:
+ - Rotation representation and opreretions
+ - Vector and matrix operations
+ - Group conected components using graphs
+ Aim of this library is also performance and multi-core ready.
+category:       Math
+author:         Edgar Gomes de Araujo
+
+Library
+  build-depends:  base         -any
+                , parsec       -any
+                , array        >= 0.3
+                , containers   >= 0.4
+                , random       >= 1.0
+
+                , text         -any
+                , xml-types    -any
+                , xml-conduit  -any
+                , system-filepath >= 0.4
+                , vector       -any
+
+  exposed-modules:  Hammer.Math.Vector
+                    Hammer.Math.GroupGraph
+                    Hammer.Render.VTK.VTKRender
+                    Hammer.Render.VTK.Base
+                    Hammer.Render.VTK.VTKXMLTemplate
+                    --Hammer.Texture.Symmetry
+                    -- Hammer.Texture.Orientation
+                    -- Hammer.IO.ANGReader
+  exposed:        True
+  buildable:      True
+  hs-source-dirs: src
