@@ -30,7 +30,17 @@ import Hammer.Math.Vector hiding (Vector)
 import Hammer.Render.VTK.Base
 import Hammer.Render.VTK.VTKXMLTemplate
 
+
+class Foldable cont where
+  folder::(a -> b -> a) -> a -> cont b -> a
                 
+instance Foldable Vector where
+  folder = foldl'
+  
+instance Foldable IntMap where
+  folder func = IM.fold (flip func)
+  
+
 addDataPoints::VTK -> String -> (Int -> Vec3 -> VTKAttr) -> VTK
 addDataPoints vtk name func = vtk { pointData = (name, func):(pointData vtk) }
 
@@ -47,19 +57,19 @@ mkRectLinGrid x y z = RectLinGrid { dimRG  = (length x, length y, length z)
                                   , setyRG = y
                                   , setzRG = z }
 
-mkUGVTK::(RenderCell shape)=> String -> Vector Vec3 -> Vector shape -> VTK 
+mkUGVTK::(RenderCell shape, Foldable cont)=> String -> Vector Vec3 -> cont shape -> VTK 
 mkUGVTK name points cells = let
   nameTxt = pack name
   dataset = mkUnstructGrid points cells
   in mkVTK nameTxt False dataset [] []
 
-mkUnstructGrid::(RenderCell shape)=> Vector Vec3 -> Vector shape -> VTKDataSet
+mkUnstructGrid::(RenderCell shape, Foldable cont)=> Vector Vec3 -> cont shape -> VTKDataSet
 mkUnstructGrid points cells = let
   init = UnstructGrid { setUG      = points
                       , cellUG     = empty
                       , cellOffUG  = empty
                       , cellTypeUG = empty }
-  in foldl' addCell init cells
+  in folder addCell init cells
 
 addCell::(RenderCell shape)=> VTKDataSet -> shape -> VTKDataSet
 addCell set@(UnstructGrid{..}) obj =
@@ -80,14 +90,11 @@ writeUniVTKfile name vtk = X.writeFile X.def name (renderVTKUni vtk)
 writeMultiVTKfile::FilePath -> Vector VTK -> IO ()
 writeMultiVTKfile name vtk = X.writeFile X.def name (renderVTKMulti vtk)
 
+text2Path= fromText . pack
 
+
+-- Example
 instance RenderCell (Int, Int, Int) where
   makeCell (a,b,c) = Vec.fromList [a,b,c]
   getType _ = VTK_TRIANGLE
-  
-ug = let
-  ps = fromList [(Vec3 0 0 0),(Vec3 1 0 0),(Vec3 0 1 0),(Vec3 0 0 2)]
-  ss = fromList [(0, 1, 2),(0, 1, 3),(1, 2, 3), ( (2, 0, 3)::(Int,Int,Int) )]
-  in mkUGVTK "test" ps ss
      
-text2Path= fromText . pack
