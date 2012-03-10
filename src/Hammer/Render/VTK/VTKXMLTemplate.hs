@@ -22,17 +22,14 @@ import Text.XML
 import Hammer.Math.Vector hiding (Vector)
 import Hammer.Render.VTK.Base
 
-toTxt::(Show a)=>a -> Text
-toTxt = pack.show
 
-
-renderVTKUni::VTK -> Document
+renderVTKUni::(RenderPoint a)=> VTK a -> Document
 renderVTKUni vtk = let
   dataSetType = renderType $ dataSet vtk
   node = [NodeElement $ renderVTK vtk]
   in renderDoc dataSetType node
 
-renderVTKMulti::Vector VTK -> Document
+renderVTKMulti::(RenderPoint a)=> Vector (VTK a) -> Document
 renderVTKMulti vtk = let
   dataSetType = if null vtk then "" else (renderType . dataSet .  head) vtk
   nodes = toList $ map (NodeElement . renderVTK) vtk
@@ -54,7 +51,7 @@ renderDoc dataSetType node = Document {
   documentEpilogue = []
   }
 
-renderType::VTKDataSet -> Text
+renderType::(RenderPoint a)=> VTKDataSet a -> Text
 renderType dataSet = case dataSet of 
   StructPoint  _ _ _   -> "ImageData"
   StructGrid   _ _     -> "StructuredGrid"
@@ -63,7 +60,7 @@ renderType dataSet = case dataSet of
     
 --format = if isBinary then "binary" else "ascii"
 
-renderVTK::VTK -> Element
+renderVTK::(RenderPoint a)=> VTK a -> Element
 renderVTK vtk@(VTK{..}) = case dataSet of 
   StructPoint dim orig spc               -> renderSP dim orig spc
   StructGrid  dim set                    -> renderSG dim set
@@ -76,7 +73,7 @@ renderSG = undefined
 
 renderRG = undefined
 
-renderUG::Vector Vec3 -> Vector Int -> Vector Int -> Vector CellType -> [VTKAttrPoint] -> [VTKAttrCell] -> Element
+renderUG::(RenderPoint a)=> Vector a -> Vector Int -> Vector Int -> Vector CellType -> [VTKAttrPoint a] -> [VTKAttrCell a] -> Element
 renderUG set cell cellOff cellType pointData cellData =
   let
     numPoints = length set
@@ -101,18 +98,18 @@ renderUG set cell cellOff cellType pointData cellData =
     }
   
   
-renderPointData::Vector Vec3 -> VTKAttrPoint ->  Element
+renderPointData::(RenderPoint a)=> Vector a -> VTKAttrPoint a ->  Element
 renderPointData pointData (name, func) = renderData False name func pointData
   
 
-renderCellData::Vector Vec3 -> Vector Int -> Vector Int -> Vector CellType -> VTKAttrCell -> Element
+renderCellData::(RenderPoint a)=> Vector a -> Vector Int -> Vector Int -> Vector CellType -> VTKAttrCell a -> Element
 renderCellData set cell cellOff cellType (name, func) = renderData True name func' cellOff
   where
     func' i x = let
       sec = map (set!) $ 
             if i == 0
             then slice 0 (cellOff!0) cell
-            else slice (cellOff!i-1) x cell
+            else slice (cellOff!i-1) (cellOff!i) cell
       tp  = cellType!i
       in func i sec tp
        
@@ -186,7 +183,7 @@ renderCells cellConn cellOffsets cellTypes faces faceOffsets = Element {
              NodeContent (Vec.foldl' (\acc x -> acc `T.append` (toTxt x `T.snoc` ' ')) T.empty xs)] })
                  
                  
-renderPoints::Vector Vec3 -> Element
+renderPoints::(RenderPoint a)=> Vector a -> Element
 renderPoints points = 
   Element {
     elementName = Name {nameLocalName = "Points", nameNamespace = Nothing, namePrefix = Nothing},
@@ -202,7 +199,7 @@ renderPoints points =
              (Name {nameLocalName = "NumberOfComponents", nameNamespace = Nothing, namePrefix = Nothing}, "3"),
              (Name {nameLocalName = "format", nameNamespace = Nothing, namePrefix = Nothing}, "ascii")],
            elementNodes = [
-             NodeContent (Vec.foldl' (\acc x -> acc `T.append` (point2text x `T.snoc` ' ')) T.empty points)] }),
+             NodeContent (Vec.foldl' (\acc x -> acc `T.append` (renderPoint x `T.snoc` ' ')) T.empty points)] }),
       NodeContent "\n"]}
 
 point2text (Vec3 x y z) = T.unwords [toTxt x, toTxt y, toTxt z]

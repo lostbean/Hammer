@@ -3,43 +3,49 @@ module Hammer.Render.VTK.Base where
 
 import Data.Vector (Vector)
 import Data.Text (Text)
+import qualified Data.Text as T
 import Hammer.Math.Vector hiding (Vector)
 
 
+class RenderPoint point where
+  renderPoint::point -> Text 
+               
+  
 class RenderCell shape where
   makeCell::shape -> Vector Int
   getType ::shape -> CellType
 
-type MultiPieceVTK =  Vector VTK
+type MultiPieceVTK a =  Vector (VTK a)
 
-data VTK = VTK { name      ::Text
-               , isBinary  ::Bool
-               , dataSet   ::VTKDataSet 
-               , pointData ::[VTKAttrPoint]
-               , cellData  ::[VTKAttrCell]
-               }
+data VTK a = VTK { name      ::Text
+                 , isBinary  ::Bool
+                 , dataSet   ::VTKDataSet a
+                 , pointData ::[VTKAttrPoint a]
+                 , cellData  ::[VTKAttrCell a]
+                 }
 
-data VTKDataSet = StructPoint { dimSP       ::(Int, Int, Int)
-                              , originSP    ::(Double, Double, Double)
-                              , spaceSP     ::(Double, Double, Double) }
+data (RenderPoint a) => VTKDataSet a = 
+  StructPoint { dimSP       ::(Int, Int, Int)
+              , originSP    ::(Double, Double, Double)
+              , spaceSP     ::(Double, Double, Double) }
                   
-                | StructGrid  { dimSG       ::(Int, Int, Int)
-                              , setSG       ::Vector Vec3              }
+  | StructGrid  { dimSG       ::(Int, Int, Int)
+                , setSG       ::Vector a                 }
                 
-                | RectLinGrid { dimRG       ::(Int, Int, Int)
-                              , setxRG      ::Vector Vec3              
-                              , setyRG      ::Vector Vec3
-                              , setzRG      ::Vector Vec3              }
+  | RectLinGrid { dimRG       ::(Int, Int, Int)
+                , setxRG      ::Vector a              
+                , setyRG      ::Vector a
+                , setzRG      ::Vector a                 }
                 
-                | UnstructGrid { setUG      ::Vector Vec3             
-                               , cellUG     ::Vector Int
-                               , cellOffUG  ::Vector Int
-                               , cellTypeUG ::Vector CellType          }
+  | UnstructGrid { setUG      ::Vector a             
+                 , cellUG     ::Vector Int
+                 , cellOffUG  ::Vector Int
+                 , cellTypeUG ::Vector CellType          }
                   
 
 
-type VTKAttrPoint = (String, Int -> Vec3 -> VTKAttr)
-type VTKAttrCell  = (String, Int -> Vector Vec3 -> CellType -> VTKAttr)
+type VTKAttrPoint a = (String, Int -> a -> VTKAttr)
+type VTKAttrCell  a = (String, Int -> Vector a -> CellType -> VTKAttr)
 
 data VTKAttr =  ScalarData Double
              | VectorData Vec3
@@ -90,3 +96,6 @@ evalCellType x = case x of
   VTK_QUADRATIC_QUAD       -> 23
   VTK_QUADRATIC_TETRA      -> 24
   VTK_QUADRATIC_HEXAHEDRON -> 25
+
+toTxt::(Show a)=>a -> Text
+toTxt = T.pack.show

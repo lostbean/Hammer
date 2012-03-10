@@ -41,29 +41,29 @@ instance Foldable IntMap where
   folder func = IM.fold (flip func)
   
 
-addDataPoints::VTK -> String -> (Int -> Vec3 -> VTKAttr) -> VTK
+addDataPoints::(RenderPoint a) => VTK a -> String -> (Int -> a -> VTKAttr) -> VTK a
 addDataPoints vtk name func = vtk { pointData = (name, func):(pointData vtk) }
 
-addScalarCells::VTK -> String -> (Int -> Vector Vec3 -> CellType -> VTKAttr) -> VTK
+addScalarCells::(RenderPoint a) => VTK a -> String -> (Int -> Vector a -> CellType -> VTKAttr) -> VTK a
 addScalarCells vtk name func = vtk { cellData = (name, func):(cellData vtk) }
 
-mkVTK::Text -> Bool -> VTKDataSet -> [VTKAttrPoint] -> [VTKAttrCell] -> VTK
+mkVTK::Text -> Bool -> VTKDataSet a -> [VTKAttrPoint a] -> [VTKAttrCell a] -> VTK a
 mkVTK = VTK
 
 
-mkRectLinGrid:: Vector Vec3 ->  Vector Vec3 ->  Vector Vec3 -> VTKDataSet
+mkRectLinGrid::(RenderPoint a) => Vector a ->  Vector a ->  Vector a -> VTKDataSet a
 mkRectLinGrid x y z = RectLinGrid { dimRG  = (length x, length y, length z)
                                   , setxRG = x
                                   , setyRG = y
                                   , setzRG = z }
 
-mkUGVTK::(RenderCell shape, Foldable cont)=> String -> Vector Vec3 -> cont shape -> VTK 
+mkUGVTK::(RenderPoint p, RenderCell shape, Foldable cont)=> String -> Vector p -> cont shape -> VTK p
 mkUGVTK name points cells = let
   nameTxt = pack name
   dataset = mkUnstructGrid points cells
   in mkVTK nameTxt False dataset [] []
 
-mkUnstructGrid::(RenderCell shape, Foldable cont)=> Vector Vec3 -> cont shape -> VTKDataSet
+mkUnstructGrid::(RenderPoint p, RenderCell shape, Foldable cont)=> Vector p -> cont shape -> VTKDataSet p
 mkUnstructGrid points cells = let
   init = UnstructGrid { setUG      = points
                       , cellUG     = empty
@@ -71,7 +71,7 @@ mkUnstructGrid points cells = let
                       , cellTypeUG = empty }
   in folder addCell init cells
 
-addCell::(RenderCell shape)=> VTKDataSet -> shape -> VTKDataSet
+addCell::(RenderPoint a, RenderCell shape)=> VTKDataSet a -> shape -> VTKDataSet a
 addCell set@(UnstructGrid{..}) obj =
   let
     cell      = makeCell obj
@@ -84,17 +84,24 @@ addCell set@(UnstructGrid{..}) obj =
 addCell set _ = set
 
 
-writeUniVTKfile::FilePath -> VTK -> IO ()
+writeUniVTKfile::(RenderPoint a) => FilePath -> VTK a -> IO ()
 writeUniVTKfile name vtk = X.writeFile X.def name (renderVTKUni vtk)
       
-writeMultiVTKfile::FilePath -> Vector VTK -> IO ()
+writeMultiVTKfile::(RenderPoint a) => FilePath -> Vector (VTK a) -> IO ()
 writeMultiVTKfile name vtk = X.writeFile X.def name (renderVTKMulti vtk)
 
-text2Path= fromText . pack
+text2Path::String -> FilePath
+text2Path = fromText . pack
 
 
--- Example
+-- Basic instances
 instance RenderCell (Int, Int, Int) where
   makeCell (a,b,c) = Vec.fromList [a,b,c]
   getType _ = VTK_TRIANGLE
      
+instance RenderPoint Vec3 where
+  renderPoint (Vec3 x y z) = T.unwords [toTxt x, toTxt y, toTxt z]
+
+instance RenderPoint Vec2 where
+  renderPoint (Vec2 x y) = T.unwords [toTxt x, toTxt y]
+  
