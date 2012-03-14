@@ -1,9 +1,11 @@
 
-
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE GADTs #-}
 
 module Hammer.Render.VTK.VTKRender where
 
@@ -41,17 +43,16 @@ instance Foldable IntMap where
   folder func = IM.fold (flip func)
   
 
-addDataPoints::(RenderPoint a) => VTK a -> String -> (Int -> a -> VTKAttr) -> VTK a
-addDataPoints vtk name func = vtk { pointData = (name, func):(pointData vtk) }
+addDataPoints::(RenderPoint a)=> VTK a -> VTKAttrPoint a -> VTK a
+addDataPoints VTK{..} attr = VTK { pointData = attr:pointData, .. }
 
-addScalarCells::(RenderPoint a) => VTK a -> String -> (Int -> Vector a -> CellType -> VTKAttr) -> VTK a
-addScalarCells vtk name func = vtk { cellData = (name, func):(cellData vtk) }
+addDataCells::(RenderPoint a)=> VTK a -> VTKAttrCell a -> VTK a
+addDataCells VTK{..} attr = VTK { cellData = attr:cellData, .. }
 
-mkVTK::Text -> Bool -> VTKDataSet a -> [VTKAttrPoint a] -> [VTKAttrCell a] -> VTK a
+mkVTK::(RenderPoint a)=> Text -> Bool -> VTKDataSet a -> [VTKAttrPoint a] -> [VTKAttrCell a] -> VTK a
 mkVTK = VTK
 
-
-mkRectLinGrid::(RenderPoint a) => Vector a ->  Vector a ->  Vector a -> VTKDataSet a
+mkRectLinGrid::(RenderPoint a)=> Vector a ->  Vector a ->  Vector a -> VTKDataSet a
 mkRectLinGrid x y z = RectLinGrid { dimRG  = (length x, length y, length z)
                                   , setxRG = x
                                   , setyRG = y
@@ -104,4 +105,5 @@ instance RenderPoint Vec3 where
 
 instance RenderPoint Vec2 where
   renderPoint (Vec2 x y) = T.unwords [toTxt x, toTxt y]
-  
+                                                       
+                           

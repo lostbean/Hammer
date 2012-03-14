@@ -99,44 +99,37 @@ renderUG set cell cellOff cellType pointData cellData =
   
   
 renderPointData::(RenderPoint a)=> Vector a -> VTKAttrPoint a ->  Element
-renderPointData pointData (name, func) = renderData False name func pointData
+renderPointData pointData attr = case attr of
+    IDDataPoint     name func -> renderData False name "Scalar" func "Int64" pointData
+    ScalarDataPoint name func -> renderData False name "Scalar" func "Float32" pointData
+    VectorDataPoint name func -> renderData False name "Vector" func "Float32" pointData
+    TensorDataPoint name func -> renderData False name "Vector" func "Float32" pointData
   
 
 renderCellData::(RenderPoint a)=> Vector a -> Vector Int -> Vector Int -> Vector CellType -> VTKAttrCell a -> Element
-renderCellData set cell cellOff cellType (name, func) = renderData True name func' cellOff
-  where
-    func' i x = let
+renderCellData set cell cellOff cellType attr =
+  let
+    mod func i x = let
       sec = map (set!) $ 
             if i == 0
             then slice 0 (cellOff!0) cell
             else slice (cellOff!i-1) (cellOff!i) cell
       tp  = cellType!i
       in func i sec tp
+  in case attr of
+    IDDataCell     name func -> renderData True name "Scalar" (mod func) "Int64" cellOff
+    ScalarDataCell name func -> renderData True name "Scalar" (mod func) "Float32" cellOff
+    VectorDataCell name func -> renderData True name "Vector" (mod func) "Float32" cellOff
+    TensorDataCell name func -> renderData True name "Vector" (mod func) "Float32" cellOff
+  
        
-renderData::Bool -> String -> (Int -> a -> VTKAttr) -> Vector a -> Element
-renderData isCellData name func xs=
+renderData::(RenderAttr attr) => Bool -> String -> Text -> (Int -> a -> attr) -> Text -> Vector a -> Element
+renderData isCellData name attrType func attrNum xs=
   let
     dataType = if isCellData then "CellData" else "PointData"
     format = "ascii"
-           
-    numRender acc i x = case func i x of       
-      ScalarData x -> acc `T.append` (toTxt x       `T.snoc` ' ')
-      VectorData x -> acc `T.append` (point2text x  `T.snoc` ' ')
-      NormalData x -> acc `T.append` (point2text x  `T.snoc` ' ')
-      TensorData x -> acc `T.append` (tensor2text x `T.snoc` ' ')
+    numRender acc i x = acc `T.append` renderAttr (func i x)
 
-    attrType = case func 0 (head xs) of
-      ScalarData _ -> "Scalar"
-      VectorData _ -> "Vector"
-      NormalData _ -> "Normal"
-      TensorData _ -> "Tensor"
-     
-    numType = case func 0 (head xs) of
-      ScalarData _ -> "Float32"
-      VectorData _ -> "Float32"
-      NormalData _ -> "Float32"
-      TensorData _ -> "Float32"
-  
   in Element {
     elementName = Name {nameLocalName = dataType, nameNamespace = Nothing, namePrefix = Nothing},
     elementAttributes = [(Name {nameLocalName = attrType, nameNamespace = Nothing, namePrefix = Nothing}, pack name)],
@@ -146,7 +139,7 @@ renderData isCellData name func xs=
         Element {
            elementName = Name {nameLocalName = "DataArray", nameNamespace = Nothing, namePrefix = Nothing},
            elementAttributes = [
-             (Name {nameLocalName = "type", nameNamespace = Nothing, namePrefix = Nothing}, numType),
+             (Name {nameLocalName = "type", nameNamespace = Nothing, namePrefix = Nothing}, attrNum),
              (Name {nameLocalName = "Name", nameNamespace = Nothing, namePrefix = Nothing}, pack name),
              (Name {nameLocalName = "format", nameNamespace = Nothing, namePrefix = Nothing}, format)],
            elementNodes = [
@@ -202,6 +195,15 @@ renderPoints points =
              NodeContent (Vec.foldl' (\acc x -> acc `T.append` (renderPoint x `T.snoc` ' ')) T.empty points)] }),
       NodeContent "\n"]}
 
-point2text (Vec3 x y z) = T.unwords [toTxt x, toTxt y, toTxt z]
 
-tensor2text (Mat3 a b c)= T.unwords [point2text a, point2text b, point2text c]
+instance RenderAttr Double where
+  renderAttr = toTxt  
+                        
+instance RenderAttr Int where
+  renderAttr = toTxt    
+  
+instance RenderAttr Vec3 where
+  renderAttr (Vec3 x y z) = T.unwords [toTxt x, toTxt y, toTxt z]
+  
+instance RenderAttr Mat3 where
+  renderAttr (Mat3 a b c) = T.unwords [renderAttr a, renderAttr b, renderAttr c]

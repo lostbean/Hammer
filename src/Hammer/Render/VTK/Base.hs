@@ -10,47 +10,53 @@ import Hammer.Math.Vector hiding (Vector)
 class RenderPoint point where
   renderPoint::point -> Text 
                
-  
 class RenderCell shape where
   makeCell::shape -> Vector Int
   getType ::shape -> CellType
 
-type MultiPieceVTK a =  Vector (VTK a)
+class RenderAttr attr where
+  renderAttr :: attr -> Text
 
-data VTK a = VTK { name      ::Text
-                 , isBinary  ::Bool
-                 , dataSet   ::VTKDataSet a
-                 , pointData ::[VTKAttrPoint a]
-                 , cellData  ::[VTKAttrCell a]
-                 }
+type MultiPieceVTK a =  Vector (VTK a)
+type AttrPoint a attr = Int -> a -> attr
+type AttrCell  a attr = Int -> Vector a -> CellType -> attr
+
+data VTK a =
+  VTK { name      ::Text
+      , isBinary  ::Bool
+      , dataSet   ::VTKDataSet a
+      , pointData ::[VTKAttrPoint a]
+      , cellData  ::[VTKAttrCell a]
+      }
+
+data VTKAttrPoint a = IDDataPoint     String (AttrPoint a Int)
+                    | ScalarDataPoint String (AttrPoint a Double)
+                    | VectorDataPoint String (AttrPoint a Vec3)
+                    | TensorDataPoint String (AttrPoint a Mat3)
+
+data VTKAttrCell a  = IDDataCell     String (AttrCell a Int)
+                    | ScalarDataCell String (AttrCell a Double)
+                    | VectorDataCell String (AttrCell a Vec3)
+                    | TensorDataCell String (AttrCell a Mat3)
+
 
 data (RenderPoint a) => VTKDataSet a = 
-  StructPoint { dimSP       ::(Int, Int, Int)
-              , originSP    ::(Double, Double, Double)
-              , spaceSP     ::(Double, Double, Double) }
+    StructPoint { dimSP       ::(Int, Int, Int)
+                , originSP    ::(Double, Double, Double)
+                , spaceSP     ::(Double, Double, Double) }
                   
   | StructGrid  { dimSG       ::(Int, Int, Int)
-                , setSG       ::Vector a                 }
+                , setSG       ::Vector a               }
                 
   | RectLinGrid { dimRG       ::(Int, Int, Int)
                 , setxRG      ::Vector a              
                 , setyRG      ::Vector a
-                , setzRG      ::Vector a                 }
+                , setzRG      ::Vector a               }
                 
   | UnstructGrid { setUG      ::Vector a             
                  , cellUG     ::Vector Int
                  , cellOffUG  ::Vector Int
-                 , cellTypeUG ::Vector CellType          }
-                  
-
-
-type VTKAttrPoint a = (String, Int -> a -> VTKAttr)
-type VTKAttrCell  a = (String, Int -> Vector a -> CellType -> VTKAttr)
-
-data VTKAttr =  ScalarData Double
-             | VectorData Vec3
-             | NormalData Vec3
-             | TensorData Mat3
+                 , cellTypeUG ::Vector CellType        }
 
 data CellType = VTK_VERTEX
               | VTK_POLY_VERTEX
