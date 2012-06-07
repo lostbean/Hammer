@@ -100,10 +100,10 @@ renderUG set cell cellOff cellType pointData cellData =
   
 renderPointData::(RenderPoint a)=> Vector a -> VTKAttrPoint a ->  Element
 renderPointData pointData attr = case attr of
-    IDDataPoint     name func -> renderData False name "Scalar" func "Int64" pointData
-    ScalarDataPoint name func -> renderData False name "Scalar" func "Float32" pointData
-    VectorDataPoint name func -> renderData False name "Vector" func "Float32" pointData
-    TensorDataPoint name func -> renderData False name "Vector" func "Float32" pointData
+    IDDataPoint     name func -> renderData False name "Scalar" 1 func "Int64" pointData
+    ScalarDataPoint name func -> renderData False name "Scalar" 1 func "Float32" pointData
+    VectorDataPoint name func -> renderData False name "Vector" 3 func "Float32" pointData
+    TensorDataPoint name func -> renderData False name "Vector" 9 func "Float32" pointData
   
 
 renderCellData::(RenderPoint a)=> Vector a -> Vector Int -> Vector Int -> Vector CellType -> VTKAttrCell a -> Element
@@ -117,18 +117,26 @@ renderCellData set cell cellOff cellType attr =
       tp  = cellType!i
       in func i sec tp
   in case attr of
-    IDDataCell     name func -> renderData True name "Scalar" (mod func) "Int64" cellOff
-    ScalarDataCell name func -> renderData True name "Scalar" (mod func) "Float32" cellOff
-    VectorDataCell name func -> renderData True name "Vector" (mod func) "Float32" cellOff
-    TensorDataCell name func -> renderData True name "Vector" (mod func) "Float32" cellOff
-  
+    IDDataCell     name func -> renderData True name "Scalar" 1 (mod func) "Int64" cellOff
+    ScalarDataCell name func -> renderData True name "Scalar" 1 (mod func) "Float32" cellOff
+    VectorDataCell name func -> renderData True name "Vector" 3 (mod func) "Float32" cellOff
+    TensorDataCell name func -> renderData True name "Vector" 9 (mod func) "Float32" cellOff
+
+
        
-renderData::(RenderAttr attr) => Bool -> String -> Text -> (Int -> a -> attr) -> Text -> Vector a -> Element
-renderData isCellData name attrType func attrNum xs=
+renderData::(RenderAttr attr) => Bool -> String -> Text -> Int -> (Int -> a -> attr) -> Text -> Vector a -> Element
+renderData isCellData name attrType ncomp func attrNum xs=
   let
+    basicAttr = [ (Name {nameLocalName = "type", nameNamespace = Nothing, namePrefix = Nothing}, attrNum)
+                , (Name {nameLocalName = "Name", nameNamespace = Nothing, namePrefix = Nothing}, pack name)
+                , (Name {nameLocalName = "format", nameNamespace = Nothing, namePrefix = Nothing}, format) ]
+    ncompAttr = (Name {nameLocalName = "NumberOfComponents", nameNamespace = Nothing, namePrefix = Nothing}, renderAttr ncomp)
+    attr = if ncomp > 1
+           then ncompAttr:basicAttr
+           else basicAttr
     dataType = if isCellData then "CellData" else "PointData"
     format = "ascii"
-    numRender acc i x = acc `T.append` renderAttr (func i x)
+    numRender acc i x = acc `T.append` (renderAttr (func i x) `T.snoc` ' ')
 
   in Element {
     elementName = Name {nameLocalName = dataType, nameNamespace = Nothing, namePrefix = Nothing},
@@ -138,10 +146,7 @@ renderData isCellData name attrType func attrNum xs=
       NodeElement (
         Element {
            elementName = Name {nameLocalName = "DataArray", nameNamespace = Nothing, namePrefix = Nothing},
-           elementAttributes = [
-             (Name {nameLocalName = "type", nameNamespace = Nothing, namePrefix = Nothing}, attrNum),
-             (Name {nameLocalName = "Name", nameNamespace = Nothing, namePrefix = Nothing}, pack name),
-             (Name {nameLocalName = "format", nameNamespace = Nothing, namePrefix = Nothing}, format)],
+           elementAttributes = attr,
            elementNodes = [
              NodeContent "\n\t\t",
              NodeContent (ifoldl' numRender T.empty xs)]}),
@@ -197,10 +202,10 @@ renderPoints points =
 
 
 instance RenderAttr Double where
-  renderAttr = toTxt  
+  renderAttr = toTxt
                         
 instance RenderAttr Int where
-  renderAttr = toTxt    
+  renderAttr = toTxt
   
 instance RenderAttr Vec3 where
   renderAttr (Vec3 x y z) = T.unwords [toTxt x, toTxt y, toTxt z]
