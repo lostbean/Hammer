@@ -86,28 +86,35 @@ renderUG set cell cellOff cellType pointData cellData =
       (Name {nameLocalName = "NumberOfCells" , nameNamespace = Nothing, namePrefix = Nothing}, toTxt numCell)], 
     elementNodes =
       -- Insert Point data
-      P.map (NodeElement . renderPointData set) pointData
+      [ NodeElement $ renderPointData set pointData
+        -- Insert Cell Data
+      , NodeElement $ renderCellData set cell cellOff cellType cellData ]
+
       P.++
-      -- Insert Cell Data
-      P.map (NodeElement . renderCellData set cell cellOff cellType) cellData
-      P.++
+
       -- Insert points
-      [NodeElement $ renderPoints set,
-       -- Insert cells
-       NodeElement $ renderCells cell cellOff cellType empty empty]
+      [ NodeElement $ renderPoints set
+        -- Insert cells
+      , NodeElement $ renderCells cell cellOff cellType empty empty ]
     }
   
   
-renderPointData::(RenderPoint a)=> Vector a -> VTKAttrPoint a ->  Element
-renderPointData pointData attr = case attr of
-    IDDataPoint     name func -> renderData False name "Scalar" 1 func "Int64" pointData
-    ScalarDataPoint name func -> renderData False name "Scalar" 1 func "Float32" pointData
-    VectorDataPoint name func -> renderData False name "Vector" 3 func "Float32" pointData
-    TensorDataPoint name func -> renderData False name "Vector" 9 func "Float32" pointData
-  
+renderPointData::(RenderPoint a)=> Vector a -> [VTKAttrPoint a] -> Element
+renderPointData pointData attrs = let
+  renderatrr attr = case attr of
+    IDDataPoint     name func -> renderData name "Scalar" 1 func "Int64" pointData
+    ScalarDataPoint name func -> renderData name "Scalar" 1 func "Float32" pointData
+    VectorDataPoint name func -> renderData name "Vector" 3 func "Float32" pointData
+    TensorDataPoint name func -> renderData name "Vector" 9 func "Float32" pointData
+  in Element {
+    elementName = Name {nameLocalName = "PointData", nameNamespace = Nothing, namePrefix = Nothing},
+    elementAttributes = [],
+    elementNodes = P.map (NodeElement . renderatrr) attrs
+    }
 
-renderCellData::(RenderPoint a)=> Vector a -> Vector Int -> Vector Int -> Vector CellType -> VTKAttrCell a -> Element
-renderCellData set cell cellOff cellType attr =
+
+renderCellData::(RenderPoint a)=> Vector a -> Vector Int -> Vector Int -> Vector CellType -> [VTKAttrCell a] -> Element
+renderCellData set cell cellOff cellType attrs =
   let
     mod func i x = let
       sec = map (set!) $ 
@@ -116,16 +123,20 @@ renderCellData set cell cellOff cellType attr =
             else slice (cellOff!i-1) (cellOff!i) cell
       tp  = cellType!i
       in func i sec tp
-  in case attr of
-    IDDataCell     name func -> renderData True name "Scalar" 1 (mod func) "Int64" cellOff
-    ScalarDataCell name func -> renderData True name "Scalar" 1 (mod func) "Float32" cellOff
-    VectorDataCell name func -> renderData True name "Vector" 3 (mod func) "Float32" cellOff
-    TensorDataCell name func -> renderData True name "Vector" 9 (mod func) "Float32" cellOff
-
-
+    renderatrr attr = case attr of
+      IDDataCell     name func -> renderData name "Scalar" 1 (mod func) "Int64" cellOff
+      ScalarDataCell name func -> renderData name "Scalar" 1 (mod func) "Float32" cellOff
+      VectorDataCell name func -> renderData name "Vector" 3 (mod func) "Float32" cellOff
+      TensorDataCell name func -> renderData name "Vector" 9 (mod func) "Float32" cellOff
+  in Element {
+    elementName = Name {nameLocalName = "CellData", nameNamespace = Nothing, namePrefix = Nothing},
+    elementAttributes = [],
+    elementNodes = P.map (NodeElement . renderatrr) attrs
+    }
+     
        
-renderData::(RenderAttr attr) => Bool -> String -> Text -> Int -> (Int -> a -> attr) -> Text -> Vector a -> Element
-renderData isCellData name attrType ncomp func attrNum xs=
+renderData::(RenderAttr attr) => String -> Text -> Int -> (Int -> a -> attr) -> Text -> Vector a -> Element
+renderData name attrType ncomp func attrNum xs=
   let
     basicAttr = [ (Name {nameLocalName = "type", nameNamespace = Nothing, namePrefix = Nothing}, attrNum)
                 , (Name {nameLocalName = "Name", nameNamespace = Nothing, namePrefix = Nothing}, pack name)
@@ -134,23 +145,15 @@ renderData isCellData name attrType ncomp func attrNum xs=
     attr = if ncomp > 1
            then ncompAttr:basicAttr
            else basicAttr
-    dataType = if isCellData then "CellData" else "PointData"
     format = "ascii"
     numRender acc i x = acc `T.append` (renderAttr (func i x) `T.snoc` ' ')
 
   in Element {
-    elementName = Name {nameLocalName = dataType, nameNamespace = Nothing, namePrefix = Nothing},
-    elementAttributes = [(Name {nameLocalName = attrType, nameNamespace = Nothing, namePrefix = Nothing}, pack name)],
+    elementName = Name {nameLocalName = "DataArray", nameNamespace = Nothing, namePrefix = Nothing},
+    elementAttributes = attr,
     elementNodes = [
-      NodeContent "\n",
-      NodeElement (
-        Element {
-           elementName = Name {nameLocalName = "DataArray", nameNamespace = Nothing, namePrefix = Nothing},
-           elementAttributes = attr,
-           elementNodes = [
-             NodeContent "\n\t\t",
-             NodeContent (ifoldl' numRender T.empty xs)]}),
-      NodeContent "\n"]}
+      NodeContent "\n\t\t",
+      NodeContent (ifoldl' numRender T.empty xs)]}
      
   
 renderCells::Vector Int -> Vector Int -> Vector CellType -> Vector Int -> Vector Int -> Element
