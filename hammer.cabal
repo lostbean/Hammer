@@ -34,6 +34,7 @@ Library
 
   exposed-modules:  Hammer.Math.Vector
                     Hammer.Math.GroupGraph
+                    Hammer.Math.SphereProjection
                     Hammer.Render.VTK.VTKRender
                     Hammer.Render.VTK.Base
                     Hammer.Render.VTK.VTKXMLTemplate
