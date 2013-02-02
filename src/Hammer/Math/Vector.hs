@@ -513,6 +513,14 @@ instance Storable Vec2 where
     pokeByteOff p k y
 
 instance Dimension Vec2 where dim _ = 2
+
+instance Ord Vec2 where
+  compare (Vec2 a1 a2) (Vec2 b1 b2)
+    | c1 == EQ  = c2
+    | otherwise = c1
+    where
+      c1 = compare a1 b1
+      c2 = compare a2 b2
                                       
 --------------------------------------------------------------------------------                    
 -- Mat2 instances
@@ -674,6 +682,15 @@ instance Storable Vec3 where
     pokeByteOff p (k+k) z
 
 instance Dimension Vec3 where dim _ = 3
+
+instance Ord Vec3 where
+  compare (Vec3 a1 a2 a3) (Vec3 b1 b2 b3)
+    | c1 == EQ  = if c2 == EQ then c3 else c2
+    | otherwise = c1
+    where
+      c1 = compare a1 b1
+      c2 = compare a2 b2
+      c3 = compare a3 b3
 
 --------------------------------------------------------------------------------   
 -- Mat3 instances
