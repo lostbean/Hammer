@@ -12,14 +12,15 @@ import Prelude hiding ((++), length, head, map, null)
 import Data.List (intersperse)
 
 import qualified Data.Text as T
-import Data.Text (Text, pack, append)
+import Data.Text (Text, pack)
 
 import Data.Vector
 import qualified Data.Vector as Vec
 
 import Text.XML
+import qualified Data.Map as M
 
-import Hammer.Math.Vector hiding (Vector)
+import Hammer.Math.Vector (Vec3(..), Mat3(..))
 import Hammer.Render.VTK.Base
 
 
@@ -36,18 +37,21 @@ renderVTKMulti vtk = let
   in renderDoc dataSetType nodes
 
 renderDoc::Text -> [Node] -> Document
-renderDoc dataSetType node = Document {
-  documentPrologue = Prologue {prologueBefore = [], prologueDoctype = Nothing, prologueAfter = []}, 
-  documentRoot = Element {
-    elementName = Name {nameLocalName = "VTKFile", nameNamespace = Nothing, namePrefix = Nothing}, 
-    elementAttributes = [(Name {nameLocalName = "type", nameNamespace = Nothing, namePrefix = Nothing}, dataSetType)], 
-    elementNodes = [ NodeContent "\n"
-                   , NodeElement $ Element {
-                       elementName = Name {nameLocalName = dataSetType, nameNamespace = Nothing, namePrefix = Nothing},
-                       elementAttributes = [], 
-                       elementNodes = [NodeContent "\n"] P.++ node P.++ [NodeContent "\n"]}
-                   , NodeContent "\n"
-                   ] },
+renderDoc dataSetType node = Document
+  { documentPrologue = Prologue {prologueBefore = [], prologueDoctype = Nothing, prologueAfter = []}
+  , documentRoot = Element
+       { elementName = Name {nameLocalName = "VTKFile", nameNamespace = Nothing, namePrefix = Nothing}
+       , elementAttributes = M.singleton (Name {nameLocalName = "type", nameNamespace = Nothing, namePrefix = Nothing}) dataSetType
+       , elementNodes =
+            [ NodeContent "\n"
+            , NodeElement $ Element
+                { elementName = Name {nameLocalName = dataSetType, nameNamespace = Nothing, namePrefix = Nothing}
+                , elementAttributes = M.empty
+                , elementNodes = [NodeContent "\n"] P.++ node P.++ [NodeContent "\n"]
+                }
+            , NodeContent "\n"
+            ]
+       },
   documentEpilogue = []
   }
 
@@ -61,41 +65,44 @@ renderType dataSet = case dataSet of
 --format = if isBinary then "binary" else "ascii"
 
 renderVTK::(RenderPoint a)=> VTK a -> Element
-renderVTK vtk@(VTK{..}) = case dataSet of 
+renderVTK VTK{..} = case dataSet of 
   StructPoint dim orig spc               -> renderSP dim orig spc
   StructGrid  dim set                    -> renderSG dim set
   RectLinGrid dim setX setY setZ         -> renderRG dim setX setY setZ
   UnstructGrid set cell cellOff cellType -> renderUG set cell cellOff cellType pointData cellData 
 
-renderSP = undefined
+renderSP :: a
+renderSP = error "[Hammer] Can't render this type of VTK file. No implemented yet."
 
-renderSG = undefined
+renderSG :: a
+renderSG = error "[Hammer] Can't render this type of VTK file. No implemented yet."
 
-renderRG = undefined
+renderRG :: a
+renderRG = error "[Hammer] Can't render this type of VTK file. No implemented yet."
 
 renderUG::(RenderPoint a)=> Vector a -> Vector Int -> Vector Int -> Vector CellType -> [VTKAttrPoint a] -> [VTKAttrCell a] -> Element
 renderUG set cell cellOff cellType pointData cellData =
   let
     numPoints = length set
     numCell   = length cellOff
-  in Element {
-    elementName = Name {nameLocalName = "Piece", nameNamespace = Nothing, namePrefix = Nothing},
-    elementAttributes = [
+  in Element
+    { elementName = Name {nameLocalName = "Piece", nameNamespace = Nothing, namePrefix = Nothing}
+    , elementAttributes = M.fromList
       -- Number of points and cells
-      (Name {nameLocalName = "NumberOfPoints", nameNamespace = Nothing, namePrefix = Nothing}, toTxt numPoints),
-      (Name {nameLocalName = "NumberOfCells" , nameNamespace = Nothing, namePrefix = Nothing}, toTxt numCell)], 
-    elementNodes =
-      -- Insert Point data
-      [ NodeElement $ renderPointData set pointData
-        -- Insert Cell Data
-      , NodeElement $ renderCellData set cell cellOff cellType cellData ]
+         [ (Name {nameLocalName = "NumberOfPoints", nameNamespace = Nothing, namePrefix = Nothing}, toTxt numPoints)
+         , (Name {nameLocalName = "NumberOfCells" , nameNamespace = Nothing, namePrefix = Nothing}, toTxt numCell) ] 
+    , elementNodes =
+           -- Insert Point data
+           [ NodeElement $ renderPointData set pointData
+             -- Insert Cell Data
+           , NodeElement $ renderCellData set cell cellOff cellType cellData ]
 
-      P.++
+           P.++
 
-      -- Insert points
-      [ NodeElement $ renderPoints set
-        -- Insert cells
-      , NodeElement $ renderCells cell cellOff cellType empty empty ]
+           -- Insert points
+           [ NodeElement $ renderPoints set
+             -- Insert cells
+           , NodeElement $ renderCells cell cellOff cellType empty empty ]
     }
   
   
@@ -106,17 +113,17 @@ renderPointData pointData attrs = let
     ScalarDataPoint name func -> renderData name "Scalar" 1 func "Float32" pointData
     VectorDataPoint name func -> renderData name "Vector" 3 func "Float32" pointData
     TensorDataPoint name func -> renderData name "Vector" 9 func "Float32" pointData
-  in Element {
-    elementName = Name {nameLocalName = "PointData", nameNamespace = Nothing, namePrefix = Nothing},
-    elementAttributes = [],
-    elementNodes = P.map (NodeElement . renderatrr) attrs
+  in Element
+    { elementName = Name {nameLocalName = "PointData", nameNamespace = Nothing, namePrefix = Nothing}
+    , elementAttributes = M.empty
+    , elementNodes = P.map (NodeElement . renderatrr) attrs
     }
 
 
 renderCellData::(RenderPoint a)=> Vector a -> Vector Int -> Vector Int -> Vector CellType -> [VTKAttrCell a] -> Element
 renderCellData set cell cellOff cellType attrs =
   let
-    mod func i x = let
+    mode func i _ = let
       sec = map (set!) $ 
             if i == 0
             then slice 0 (cellOff!0) cell
@@ -124,19 +131,19 @@ renderCellData set cell cellOff cellType attrs =
       tp  = cellType!i
       in func i sec tp
     renderatrr attr = case attr of
-      IDDataCell     name func -> renderData name "Scalar" 1 (mod func) "Int64" cellOff
-      ScalarDataCell name func -> renderData name "Scalar" 1 (mod func) "Float32" cellOff
-      VectorDataCell name func -> renderData name "Vector" 3 (mod func) "Float32" cellOff
-      TensorDataCell name func -> renderData name "Vector" 9 (mod func) "Float32" cellOff
-  in Element {
-    elementName = Name {nameLocalName = "CellData", nameNamespace = Nothing, namePrefix = Nothing},
-    elementAttributes = [],
-    elementNodes = P.map (NodeElement . renderatrr) attrs
+      IDDataCell     name func -> renderData name "Scalar" 1 (mode func) "Int64" cellOff
+      ScalarDataCell name func -> renderData name "Scalar" 1 (mode func) "Float32" cellOff
+      VectorDataCell name func -> renderData name "Vector" 3 (mode func) "Float32" cellOff
+      TensorDataCell name func -> renderData name "Vector" 9 (mode func) "Float32" cellOff
+  in Element
+    { elementName = Name {nameLocalName = "CellData", nameNamespace = Nothing, namePrefix = Nothing}
+    , elementAttributes = M.empty
+    , elementNodes = P.map (NodeElement . renderatrr) attrs
     }
      
        
 renderData::(RenderAttr attr) => String -> Text -> Int -> (Int -> a -> attr) -> Text -> Vector a -> Element
-renderData name attrType ncomp func attrNum xs=
+renderData name _ ncomp func attrNum xs=
   let
     basicAttr = [ (Name {nameLocalName = "type", nameNamespace = Nothing, namePrefix = Nothing}, attrNum)
                 , (Name {nameLocalName = "Name", nameNamespace = Nothing, namePrefix = Nothing}, pack name)
@@ -148,18 +155,20 @@ renderData name attrType ncomp func attrNum xs=
     format = "ascii"
     numRender acc i x = acc `T.append` (renderAttr (func i x) `T.snoc` ' ')
 
-  in Element {
-    elementName = Name {nameLocalName = "DataArray", nameNamespace = Nothing, namePrefix = Nothing},
-    elementAttributes = attr,
-    elementNodes = [
-      NodeContent "\n\t\t",
-      NodeContent (ifoldl' numRender T.empty xs)]}
+  in Element
+    { elementName = Name {nameLocalName = "DataArray", nameNamespace = Nothing, namePrefix = Nothing}
+    , elementAttributes = M.fromList attr
+    , elementNodes =
+      [ NodeContent "\n\t\t"
+      , NodeContent (ifoldl' numRender T.empty xs)
+      ]
+    }
      
   
 renderCells::Vector Int -> Vector Int -> Vector CellType -> Vector Int -> Vector Int -> Element
 renderCells cellConn cellOffsets cellTypes faces faceOffsets = Element {
     elementName = Name {nameLocalName = "Cells", nameNamespace = Nothing, namePrefix = Nothing},
-    elementAttributes = [],
+    elementAttributes = M.empty,
     elementNodes = intersperse (NodeContent "\n") full }
   where
     full = if Vec.null faces
@@ -174,34 +183,43 @@ renderCells cellConn cellOffsets cellTypes faces faceOffsets = Element {
     
     func numType name format xs = 
       NodeElement (
-        Element {
-           elementName = Name {nameLocalName = "DataArray", nameNamespace = Nothing, namePrefix = Nothing},
-           elementAttributes = [
-             (Name {nameLocalName = "type", nameNamespace = Nothing, namePrefix = Nothing}, numType),
-             (Name {nameLocalName = "Name", nameNamespace = Nothing, namePrefix = Nothing}, name),
-             (Name {nameLocalName = "format", nameNamespace = Nothing, namePrefix = Nothing}, format)],
-           elementNodes = [
-             NodeContent (Vec.foldl' (\acc x -> acc `T.append` (toTxt x `T.snoc` ' ')) T.empty xs)] })
+        Element
+           { elementName = Name {nameLocalName = "DataArray", nameNamespace = Nothing, namePrefix = Nothing}
+           , elementAttributes = M.fromList
+                [ (Name {nameLocalName = "type", nameNamespace = Nothing, namePrefix = Nothing}, numType)
+                , (Name {nameLocalName = "Name", nameNamespace = Nothing, namePrefix = Nothing}, name)
+                , (Name {nameLocalName = "format", nameNamespace = Nothing, namePrefix = Nothing}, format)
+                ]
+           , elementNodes =
+                  [ NodeContent (Vec.foldl' (\acc x -> acc `T.append` (toTxt x `T.snoc` ' ')) T.empty xs)]
+           }
+        )
                  
                  
 renderPoints::(RenderPoint a)=> Vector a -> Element
 renderPoints points = 
-  Element {
-    elementName = Name {nameLocalName = "Points", nameNamespace = Nothing, namePrefix = Nothing},
-    elementAttributes = [],
-    elementNodes = [
-      NodeContent "\n",
-      NodeElement (
-        Element {
-           elementName = Name {nameLocalName = "DataArray", nameNamespace = Nothing, namePrefix = Nothing},
-           elementAttributes = [
-             (Name {nameLocalName = "type", nameNamespace = Nothing, namePrefix = Nothing}, "Float32"),
-             (Name {nameLocalName = "Name", nameNamespace = Nothing, namePrefix = Nothing}, "Points"),
-             (Name {nameLocalName = "NumberOfComponents", nameNamespace = Nothing, namePrefix = Nothing}, "3"),
-             (Name {nameLocalName = "format", nameNamespace = Nothing, namePrefix = Nothing}, "ascii")],
-           elementNodes = [
-             NodeContent (Vec.foldl' (\acc x -> acc `T.append` (renderPoint x `T.snoc` ' ')) T.empty points)] }),
-      NodeContent "\n"]}
+  Element
+    { elementName = Name {nameLocalName = "Points", nameNamespace = Nothing, namePrefix = Nothing}
+    , elementAttributes = M.empty
+    , elementNodes = 
+      [ NodeContent "\n"
+      , NodeElement
+        ( Element
+           { elementName = Name {nameLocalName = "DataArray", nameNamespace = Nothing, namePrefix = Nothing}
+           , elementAttributes = M.fromList
+               [ (Name {nameLocalName = "type", nameNamespace = Nothing, namePrefix = Nothing}, "Float32")
+               , (Name {nameLocalName = "Name", nameNamespace = Nothing, namePrefix = Nothing}, "Points")
+               , (Name {nameLocalName = "NumberOfComponents", nameNamespace = Nothing, namePrefix = Nothing}, "3")
+               , (Name {nameLocalName = "format", nameNamespace = Nothing, namePrefix = Nothing}, "ascii")
+               ]
+           , elementNodes = [
+               NodeContent (Vec.foldl' (\acc x -> acc `T.append` (renderPoint x `T.snoc` ' ')) T.empty points)
+               ]
+           }
+        )
+      , NodeContent "\n"
+      ]
+    }
 
 
 instance RenderAttr Double where

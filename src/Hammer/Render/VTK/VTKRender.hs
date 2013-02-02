@@ -1,4 +1,3 @@
-
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
@@ -18,15 +17,13 @@ import qualified Data.Vector as Vec
 import Data.IntMap (IntMap)
 import qualified Data.IntMap as IM
 
-import Text.XML
 import qualified Text.XML as X
 
-import Data.Text (Text, pack, append)
+import Data.Text (Text, pack)
 import qualified Data.Text as T
 
 import Filesystem.Path (FilePath)
 import Filesystem.Path.CurrentOS (fromText)
-import qualified Filesystem.Path as FS
 
 import Hammer.Math.Vector hiding (Vector)
 import Hammer.Render.VTK.Base
@@ -66,11 +63,11 @@ mkUGVTK name points cells = let
 
 mkUnstructGrid::(RenderPoint p, RenderCell shape, Foldable cont)=> Vector p -> cont shape -> VTKDataSet p
 mkUnstructGrid points cells = let
-  init = UnstructGrid { setUG      = points
-                      , cellUG     = empty
-                      , cellOffUG  = empty
-                      , cellTypeUG = empty }
-  in folder addCell init cells
+  i = UnstructGrid { setUG      = points
+                   , cellUG     = empty
+                   , cellOffUG  = empty
+                   , cellTypeUG = empty }
+  in folder addCell i cells
 
 addCell::(RenderPoint a, RenderCell shape)=> VTKDataSet a -> shape -> VTKDataSet a
 addCell set@(UnstructGrid{..}) obj =

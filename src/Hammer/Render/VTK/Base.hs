@@ -82,6 +82,7 @@ data CellType = VTK_VERTEX
 instance Show CellType where
   show = show . evalCellType
 
+evalCellType :: CellType -> Int
 evalCellType x = case x of
   VTK_VERTEX               -> 1
   VTK_POLY_VERTEX          -> 2
