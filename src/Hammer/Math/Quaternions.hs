@@ -10,7 +10,7 @@
 -- for more information.
 
 {-# LANGUAGE MultiParamTypeClasses, GeneralizedNewtypeDeriving #-}
-module Hammer.Math.Quaternion where
+module Hammer.Math.Quaternions where
 
 --------------------------------------------------------------------------------
 
@@ -23,7 +23,7 @@ import System.Random
 
 -- | The type for quaternions. 
 newtype Quaternion = Q Vec4 
-  deriving (Read,Show,Storable,AbelianGroup,Vector,DotProd,Random,Interpolate)
+  deriving (Read,Show,Storable,AbelianGroup,Vector,DotProd,Random)
 
 -- | The type for unit quaternions. 
 newtype UnitQuaternion = U Vec4 
