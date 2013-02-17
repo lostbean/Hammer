@@ -1,5 +1,3 @@
-
-
 module Hammer.Math.SphereProjection where
 
 import Hammer.Math.Vector
