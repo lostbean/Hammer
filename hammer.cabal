@@ -1,6 +1,6 @@
 name:           hammer
-version:        0.1.1
-cabal-version:  >= 1.4
+version:        0.2.0
+cabal-version:  >= 1.8
 build-type:     Simple
 license:        GPL-3
 license-file:   LICENSE
@@ -19,29 +19,66 @@ description: Library with tools for metalurgical research. Includes:
 category:       Math
 author:         Edgar Gomes de Araujo
 
+
+Flag profile
+    Description:        Build the exectable using command line.
+    Default:            False
+
+Executable hammer-profile
+    main-is:           Main.hs
+    if flag(profile)
+       build-depends:  optparse-applicative >= 0.5
+                     , hammer
+                     , base                 == 4.*
+                     , vector               == 0.10.*
+                     , random               == 1.0.*
+                     , hmatrix              == 0.14.*
+       hs-source-dirs: profile
+       ghc-options:    -O3 -threaded -prof -rtsopts -auto-all -caf-all
+       Buildable:      True
+    else
+       Buildable:      False
+
 Library
-  build-depends:  base            >= 4   && <  5
-                , parsec          >= 3.1 && <  3.2
-                , array           >= 0.3 && <  0.5
-                , containers      >= 0.4 && <  0.5
-                , random          >= 1.0 && <  1.1
-
-                , text            >= 0.11 && <  0.12
-                , xml-types       >= 0.3  && <  0.4
-                , xml-conduit     >= 0.7  && <  0.7.1
-                , system-filepath >= 0.4  && <  0.5
-                , vector          >= 0.9  && <  0.10
-
+  build-depends:  base                 == 4.*
+                , array                == 0.4.*
+                , containers           >= 0.4.2.1 && < 0.6
+                , unordered-containers >= 0.2
+                , hashable             >= 1.2
+                , text                 == 0.11.*
+                , xmlgen               == 0.4.*
+                , bytestring           == 0.9.*
+                , vector               == 0.10.*
+                , hmatrix              == 0.14.*
+                , random               == 1.0.*
   exposed-modules:  Hammer.Math.Vector
-                    Hammer.Math.GroupGraph
                     Hammer.Math.SphereProjection
+                    Hammer.Math.Quaternions
+
                     Hammer.Render.VTK.VTKRender
-                    Hammer.Render.VTK.Base
-                    Hammer.Render.VTK.VTKXMLTemplate
+                    Hammer.Render.VoxBoxVTK
+
+                    Hammer.MicroGraph.GrainsGraph
+                    
+                    Hammer.VoxBox.Base
+                    Hammer.VoxBox.GrainFinder
+                    Hammer.VoxBox.MicroVoxel
+
+                    Hammer.Texture.Harmonics.BaseFunctions
                     --Hammer.Texture.Symmetry
                     --Hammer.Texture.Orientation
-                    --Hammer.IO.ANGReader
-  exposed:        False
+                    --Hammer.Reader.ANGReader
+
+  other-modules:
+                    Hammer.Render.VTK.VTKXMLTemplate
+                    Hammer.Render.VTK.Types
+                    Hammer.MicroGraph.Types
+
+  exposed:        True
   buildable:      True
-  hs-source-dirs: src
-  ghc-options:
+  hs-source-dirs: src    
+  if flag(profile)
+    ghc-options: -O2 -threaded -prof -rtsopts -auto-all -caf-all
+  else
+    ghc-options: -Wall -fwarn-tabs -funbox-strict-fields -O2
+                 -fno-warn-orphans -fno-warn-unused-do-bind
