@@ -14,10 +14,11 @@ data VoxBoxOrigin = VoxBoxOrigin
                   deriving (Show, Eq, Ord)
                             
 data VoxBoxRange  = VoxBoxRange
-                    {-# UNPACK #-} !VoxelPos
-                    {-# UNPACK #-} !VoxelPos
-                  deriving (Eq, Show)
-
+                    { vbrOrigin :: {-# UNPACK #-} !VoxelPos
+                    , vbrDim    :: {-# UNPACK #-} !VoxBoxDim
+                    } deriving (Eq, Show)
+                           
+-- | Dimension of voxel box where x, y and z >= 1
 data VoxBoxDim    = VoxBoxDim
                     {-# UNPACK #-} !Int
                     {-# UNPACK #-} !Int
@@ -75,15 +76,29 @@ getVoxelID bdim pos
   | checkPosBound bdim pos = return $ unsafeGetVoxelID bdim pos
   | otherwise              = Nothing
 
+{-# INLINE getVoxelPos #-}    
+getVoxelPos :: VoxBoxDim -> Int -> Maybe VoxelPos
+getVoxelPos (VoxBoxDim dx dy dz) i
+  | dx <= 0 && dy <= 0 && dz <= 0 = Nothing
+  | qx < dx && qy < dy && qz < dz = return $ VoxelPos qx qy qz
+  | otherwise                     = Nothing
+  where
+    (qz, rz) = i  `divMod` (dx*dy)
+    (qy, ry) = rz `divMod` dx
+    qx       = ry
+
+{-# INLINE (#+#) #-} 
 (#+#) :: VoxelPos -> VoxelPos -> VoxelPos
 (VoxelPos x1 y1 z1) #+# (VoxelPos x2 y2 z2) = VoxelPos (x1+x2) (y1+y2) (z1+z2)
 
+{-# INLINE (#-#) #-} 
 (#-#) :: VoxelPos -> VoxelPos -> VoxelPos
 (VoxelPos x1 y1 z1) #-# (VoxelPos x2 y2 z2) = VoxelPos (x1-x2) (y1-y2) (z1-z2)
 
+{-# INLINE (#*) #-} 
 (#*) :: VoxelPos -> Int -> VoxelPos
 (VoxelPos x y z) #* k = VoxelPos (x*k) (y*k) (z*k)
-     
+
 (#/) :: VoxelPos -> Int -> (VoxelPos, VoxelPos)
 (VoxelPos x y z) #/ k = let
   (q1,r1) = x `divMod` k
@@ -157,7 +172,13 @@ getEdgeEndPos edge = case edge of
   Ez p -> (p, p #+# (VoxelPos 0 0 1))
 
 getBoxLinRange :: VoxBoxRange -> (Int, Int, Int, Int, Int, Int)
-getBoxLinRange (VoxBoxRange (VoxelPos x1 y1 z1) (VoxelPos x2 y2 z2)) = let
+getBoxLinRange (VoxBoxRange (VoxelPos x1 y1 z1) (VoxBoxDim dx dy dz)) = let
+  x2 = func dx x1
+  y2 = func dy y1
+  z2 = func dz z1
+  func dk k
+    | dk > 0    = k + (dk - 1)
+    | otherwise = k 
   ux = max x1 x2
   lx = min x1 x2
   uy = max y1 y2
@@ -165,11 +186,12 @@ getBoxLinRange (VoxBoxRange (VoxelPos x1 y1 z1) (VoxelPos x2 y2 z2)) = let
   uz = max z1 z2
   lz = min z1 z2
   in (lx, ux, ly, uy, lz, uz)
-     
+
 getVoxBoxDim :: VoxBoxDim -> (Int, Int, Int)
 getVoxBoxDim (VoxBoxDim x y z) = (x,y,z)
 
-getBox :: VoxBoxRange -> (VoxelPos, VoxelPos, VoxelPos, VoxelPos, VoxelPos, VoxelPos, VoxelPos, VoxelPos)
+getBox :: VoxBoxRange -> ( VoxelPos, VoxelPos, VoxelPos, VoxelPos
+                         , VoxelPos, VoxelPos, VoxelPos, VoxelPos )
 getBox br = let
   (lx, ux, ly, uy, lz, uz) = getBoxLinRange br
   
@@ -186,21 +208,22 @@ getBox br = let
   in (bll, bul, bur, blr, tur, tlr, tll, tul) 
 
      
-splitBox :: VoxBoxRange -> ( Maybe VoxBoxRange, Maybe VoxBoxRange, Maybe VoxBoxRange, Maybe VoxBoxRange
-                        , Maybe VoxBoxRange, Maybe VoxBoxRange, Maybe VoxBoxRange, Maybe VoxBoxRange )
-splitBox box@(VoxBoxRange b1 b2) = let
-  (q, r) = (b2 #+# b1) #/ 2
-  bc_tur = q #+# r
-  bc_bll = bc_tur #-# VoxelPos 1 1 1
+splitBox :: VoxBoxRange -> ( Maybe VoxBoxRange, Maybe VoxBoxRange, Maybe VoxBoxRange
+                           , Maybe VoxBoxRange, Maybe VoxBoxRange, Maybe VoxBoxRange
+                           , Maybe VoxBoxRange, Maybe VoxBoxRange )
+splitBox box@(VoxBoxRange org dim) = let
+  fakePos (VoxBoxDim dx dy dz) = VoxelPos dx dy dz
+  
+  (q, r) = (fakePos dim) #/ 2
+  bc_org = (org #+# q #+# r) #-# VoxelPos 1 1 1
+  bc_dim = VoxBoxDim 2 2 2
 
-  (cbll, cbul, cbur, cblr, ctur, ctlr, ctll, ctul) = getBox (VoxBoxRange bc_bll bc_tur)
+  (cbll, cbul, cbur, cblr, ctur, ctlr, ctll, ctul) = getBox (VoxBoxRange bc_org bc_dim)
   (bbll, bbul, bbur, bblr, btur, btlr, btll, btul) = getBox box
   
   getStdBox bx cx
-    | isInBox box cx = let
-      (gbll, _, _, _, gtur, _, _, _) = getBox (VoxBoxRange bx cx)
-      in return $ VoxBoxRange gbll gtur
-    | otherwise = Nothing
+    | isInBox box cx = return $ posRange2VoxBox bx cx
+    | otherwise      = Nothing
                   
   bll = getStdBox bbll cbll
   bul = getStdBox bbul cbul
@@ -214,6 +237,17 @@ splitBox box@(VoxBoxRange b1 b2) = let
 
   in (bll, bul, bur, blr, tur, tlr, tll, tul)
 
+
+posRange2VoxBox :: VoxelPos -> VoxelPos -> VoxBoxRange
+posRange2VoxBox (VoxelPos x1 y1 z1) (VoxelPos x2 y2 z2) = let 
+  dim     = VoxBoxDim (foo x1 x2) (foo y1 y2) (foo z1 z2)
+  foo a b = 1 + abs (b-a)
+  lx      = min x1 x2
+  ly      = min y1 y2
+  lz      = min z1 z2
+  new_org = VoxelPos lx ly lz
+  in VoxBoxRange new_org dim
+
 isInBox :: VoxBoxRange -> VoxelPos -> Bool
 isInBox box (VoxelPos x y z) = let
   (lx, ux, ly, uy, lz, uz) = getBoxLinRange box
@@ -225,7 +259,8 @@ isOnEdge box (VoxelPos x y z) = let
   in x == lx || x == ux || y == ly || y == uy || z == lz || z == uz 
 
 isMinRange :: VoxBoxRange -> Bool
-isMinRange (VoxBoxRange b1 b2) = b1 == b2
+isMinRange (VoxBoxRange _ (VoxBoxDim dx dy dz)) =
+  dx <= 1 && dy <= 1 && dz <= 1
                                                    
 maskVoxelPos :: CartesianDir -> VoxelPos -> VoxelPos 
 maskVoxelPos dir (VoxelPos x y z) = case dir of
