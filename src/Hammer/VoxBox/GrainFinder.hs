@@ -1,26 +1,25 @@
 {-# LANGUAGE RecordWildCards #-}
+{-# OPTIONS_GHC -fno-warn-unused-do-bind #-}
 
 module Hammer.VoxBox.GrainFinder
   ( grainFinder
-  , getVectorGID 
-  , BoxData (grainMap, shellBox, boxRange)
   ) where
 
 import qualified Data.List             as L
 import qualified Data.HashMap.Strict   as HM
-import qualified Data.HashSet          as HS
 import qualified Data.Vector           as V
   
 import           Control.Applicative            ((<|>), (<$>))
-import           Control.Monad                  (foldM_)
 import           Control.Monad.ST               (runST)
 import           Data.HashMap.Strict            (HashMap)
-import           Data.HashSet                   (HashSet)
 import           Data.Maybe                     (mapMaybe)
 import           Data.Vector                    (Vector)
 import           Data.Vector.Mutable            (write)
-import           Hammer.MicroGraph.GrainsGraph  (GrainID, mkGrainID, unGrainID)
+import           Hammer.MicroGraph.GrainsGraph  (GrainID, mkGrainID)
 import           Hammer.VoxBox.Base
+
+import           Control.DeepSeq
+import           Control.Parallel.Strategies
 
 import           Debug.Trace
 
@@ -32,32 +31,50 @@ data BoxData = BoxData
   , boxRange :: VoxBoxRange
   } deriving (Show)
 
+instance NFData BoxData where
+  rnf (BoxData gm sb br) = rnf gm `seq` rnf sb `seq` rnf br
+
 getVectorGID :: BoxData -> Vector GrainID
 getVectorGID = mapGID . shellBox
 
-grainFinder :: (Eq a)=> VoxBox a -> Maybe BoxData
-grainFinder vbox@VoxBox{..} = foo br
+grainFinder :: (Eq a)=> VoxBox a -> Maybe (VoxBox GrainID, HashMap GrainID (Vector VoxelPos))
+grainFinder vb = do
+  boxdata <- grainFinder' vb
+  return (vb { grainID = getVectorGID boxdata }, grainMap boxdata)
+  
+grainFinder' :: (Eq a)=> VoxBox a -> Maybe BoxData
+grainFinder' vbox@VoxBox{..} = go dimension
   where
-    br    = VoxBoxRange (VoxelPos 0 0 0) dimension
-    merge = mergeBoxData vbox
-    foo :: VoxBoxRange -> Maybe BoxData
-    foo boxrange
+    merge          = mergeBoxData vbox
+    mergeRange a b = merge (go =<< a) (go =<< b)
+    
+    go :: VoxBoxRange -> Maybe BoxData
+    go boxrange
       | isMinRange boxrange = let
         (VoxBoxRange p _) = boxrange
         in initDataBox dimension p
-      | otherwise         = merge b1234 b5678
+      | sizeVoxBoxRange boxrange >= 500 = run rpar
+      | otherwise                       = run rseq
       where
         (b1, b2, b3, b4, b5, b6, b7, b8) = splitBox boxrange
-        b12 = merge (foo =<< b1) (foo =<< b2)
-        b34 = merge (foo =<< b3) (foo =<< b4)
-        b56 = merge (foo =<< b5) (foo =<< b6)
-        b78 = merge (foo =<< b7) (foo =<< b8)
-        b1234 = merge b12 b34
-        b5678 = merge b56 b78
+        run strat = runEval $ do
+          b12 <- strat (mergeRange b1 b2)
+          b34 <- strat (mergeRange b3 b4)
+          b56 <- strat (mergeRange b5 b6)
+          b78 <- strat (mergeRange b7 b8)
+          rdeepseq b12
+          rdeepseq b34
+          rdeepseq b56
+          rdeepseq b78
+          b1234 <- strat (merge b12 b34)
+          b5678 <- strat (merge b56 b78)
+          rdeepseq b1234
+          rdeepseq b5678
+          return (merge b1234 b5678)
 
-initDataBox :: VoxBoxDim -> VoxelPos -> Maybe BoxData
-initDataBox bdim p = do
-  vid <- getVoxelID bdim p
+initDataBox :: VoxBoxRange -> VoxelPos -> Maybe BoxData
+initDataBox vbrGlobal p = do
+  vid <- getVoxelID vbrGlobal p
   let
     gid  = mkGrainID vid
     glm  = HM.singleton gid (V.singleton p)
@@ -91,10 +108,14 @@ mixMaps bd@BoxData{..} (p1, p2) = case foo of
     foo = do
       ogid1 <- shellBox %!? p1
       ogid2 <- shellBox %!? p2
-      if ogid1 < ogid2
-        then takeToFrom ogid1 ogid2
-        else takeToFrom ogid2 ogid1
-
+      compareBoth ogid1 ogid2
+  
+    compareBoth gid1 gid2
+      -- Check if it has been megered before (GrainID_1 == GrainID_2)
+      | gid1 == gid2 = return bd             
+      | gid1 <  gid2 = takeToFrom gid1 gid2
+      | otherwise    = takeToFrom gid2 gid1
+      
     -- Take the VID set from gid1 to gid2
     -- gid1 -> Dominate grain ID
     -- gid2 -> its content will be merge into gid1
@@ -110,16 +131,14 @@ mixMaps bd@BoxData{..} (p1, p2) = case foo of
 mergeBoxData :: (Eq a)=> VoxBox a -> Maybe BoxData -> Maybe BoxData -> Maybe BoxData
 mergeBoxData vbox (Just d1) (Just d2) = do
   (newBR, dir, wall) <- mergeVoxBoxRange (boxRange d1) (boxRange d2)
-  uniShellBox        <- mergeGrainMap (shellBox d1) (shellBox d2)
+  uniShellBox        <- mergeGrainMap    (shellBox d1) (shellBox d2)
   let
     withConn    = mapMaybe (isConn vbox dir) wall
     uniGrainMap = HM.union (grainMap d1) (grainMap d2)
     newBD       = BoxData uniGrainMap uniShellBox newBR
     mixBD       = L.foldl' mixMaps newBD withConn
   return $ mixBD
-mergeBoxData _ x@(Just _)        _ = x
-mergeBoxData _ _        x@(Just _) = x
-mergeBoxData _ _                 _ = Nothing
+mergeBoxData _ a b = a <|> b
 
 mergeVoxBoxRange :: VoxBoxRange -> VoxBoxRange
                  -> Maybe (VoxBoxRange, CartesianDir, [VoxelPos])
@@ -135,8 +154,8 @@ mergeVoxBoxRange b1 b2
   | testZ tur2 bur1 && testZ tll2 bll1 = out bll2 tur1 ZDir bur1 tll2
   | otherwise                          = Nothing
   where
-    (bll1, bul1, bur1, blr1, tur1, tlr1, tll1, tul1) = getBox b1
-    (bll2, bul2, bur2, blr2, tur2, tlr2, tll2, tul2) = getBox b2
+    (bll1, _, bur1, blr1, tur1, _, tll1, tul1) = getBox b1
+    (bll2, _, bur2, blr2, tur2, _, tll2, tul2) = getBox b2
     testX a b = a #+# (VoxelPos 1 0 0) == b
     testY a b = a #+# (VoxelPos 0 1 0) == b
     testZ a b = a #+# (VoxelPos 0 0 1) == b
@@ -144,7 +163,7 @@ mergeVoxBoxRange b1 b2
       br = posRange2VoxBox p1 p2
       wl = posRange2VoxBox w1 w2
       in return (br, dir, scanWall dir wl)
-                                             
+
 -- --------------------------- GrainMap -----------------------------------
     
 data GrainMap = GrainMap
@@ -152,18 +171,9 @@ data GrainMap = GrainMap
   , mapGID    :: Vector GrainID
   } deriving (Show)
              
-{-# INLINE (%@?) #-} 
-(%@?) :: VoxBoxRange -> VoxelPos -> Maybe Int
-(VoxBoxRange org dim) %@? pos = let
-  pos' = pos #-# org
-  in getVoxelID dim pos'
+instance NFData GrainMap where
+  rnf (GrainMap mb mg) = rnf mb `seq` rnf mg
 
-{-# INLINE (%@)  #-} 
-(%@) :: VoxBoxRange -> VoxelPos -> Int
-(VoxBoxRange org dim) %@ pos = let
-  pos' = pos #-# org
-  in unsafeGetVoxelID dim pos'
-     
 {-# INLINE (%!) #-} 
 (%!) :: GrainMap -> VoxelPos -> GrainID
 GrainMap{..} %! pos = mapGID V.! (mapBox %@ pos) 
@@ -172,26 +182,17 @@ GrainMap{..} %! pos = mapGID V.! (mapBox %@ pos)
 (%!?) :: GrainMap -> VoxelPos -> Maybe GrainID
 GrainMap{..} %!? pos = (mapGID V.!) <$> (mapBox %@? pos) 
     
-getRangePos :: VoxBoxRange -> [VoxelPos]
-getRangePos (VoxBoxRange (VoxelPos x y z) (VoxBoxDim dx dy dz)) = 
-  [ VoxelPos i j k | i <- [x .. x + dx]
-                   , j <- [y .. y + dy]
-                   , k <- [z .. z + dz]]
-  
 mergeGrainMap :: GrainMap -> GrainMap -> Maybe GrainMap
 mergeGrainMap gma gmb = do
-  (new_range, dir, wall) <- mergeVoxBoxRange (mapBox gma) (mapBox gmb)
+  (new_range, _, _) <- mergeVoxBoxRange (mapBox gma) (mapBox gmb)
   let
-    new_dim = vbrDim    new_range
-    new_org = vbrOrigin new_range
+    new_size = getSize (mapBox gma) + getSize (mapBox gmb)
     
-    n = getSize (mapBox gma) + getSize (mapBox gmb)
-    
-    getSize = (\(x,y,z) -> abs $ x*y*z) . getVoxBoxDim . vbrDim
+    getSize  = (\(x,y,z) -> abs $ x*y*z) . getVoxBoxDim . vbrDim
          
     getPosInRange :: GrainMap -> Int -> Maybe GrainID
     getPosInRange gm@GrainMap{..} i = do
-      pos <- (new_org #+#) <$> getVoxelPos new_dim i
+      pos <- getVoxelPos new_range i
       let test
             | isInBox mapBox pos = return $ gm %! pos
             | otherwise          = Nothing
@@ -203,7 +204,8 @@ mergeGrainMap gma gmb = do
         Just x -> x
         _      -> error "[GrainFinder] unable to merge two GrainMap's."
         
-  return $ GrainMap { mapBox = new_range, mapGID = V.generate n func }
+  return $ GrainMap { mapBox = new_range
+                    , mapGID = V.generate new_size func }
 
 -- ===================  Critical Peformance operations ==============================
   
@@ -220,7 +222,7 @@ updateGM set gid gm@GrainMap{..} = let
   
 {-# INLINE (%@#)  #-} 
 (%@#) :: VoxBoxRange -> VoxelPos -> Int
-(VoxBoxRange (VoxelPos x0 y0 z0) (VoxBoxDim dx dy dz)) %@# (VoxelPos x y z) =
+(VoxBoxRange (VoxelPos x0 y0 z0) (VoxBoxDim dx dy _)) %@# (VoxelPos x y z) =
   (x-x0) + dx*(y-y0) + dx*dy*(z-z0)
 
 -- ====================================================================================

@@ -2,7 +2,8 @@
 
 module Hammer.VoxBox.Base where
 
-import Data.Vector                     (Vector, (!))  
+import Control.DeepSeq
+import Data.Vector                     (Vector, (!))
 import Hammer.Math.Vector              hiding (Vector)
 
 -- ================================================================================
@@ -48,7 +49,7 @@ data FacePos      = Fx {-# UNPACK #-} !VoxelPos
                   deriving (Show, Eq)
 
 data VoxBox a     = VoxBox
-                    { dimension :: VoxBoxDim
+                    { dimension :: VoxBoxRange
                     , origin    :: VoxBoxOrigin
                     , spacing   :: VoxelDim 
                     , grainID   :: Vector a
@@ -58,34 +59,75 @@ data CartesianDir = XDir | YDir | ZDir deriving (Eq, Show)
 
 type VID = Int  -- Voxel's serial position
 
+-- ---------------------------- DeepSeq instances -------------------------------
+           
+instance NFData VoxelPos where
+  rnf (VoxelPos x y z) = rnf x `seq` rnf x `seq` rnf z
+
+instance NFData VoxBoxDim where
+  rnf (VoxBoxDim dx dy dz) = rnf dx `seq` rnf dx `seq` rnf dz
+  
+instance NFData VoxBoxRange where
+  rnf (VoxBoxRange org dim) = rnf org `seq` rnf dim
+
 -- ==============================================================================
 
-{-# INLINE unsafeGetVoxelID #-}    
-unsafeGetVoxelID :: VoxBoxDim -> VoxelPos -> Int
-unsafeGetVoxelID (VoxBoxDim maxX maxY _) (VoxelPos x y z) =
-  x + maxX*y + maxX*maxY*z
-
 {-# INLINE checkPosBound #-}    
-checkPosBound :: VoxBoxDim -> VoxelPos -> Bool
-checkPosBound (VoxBoxDim maxX maxY maxZ) (VoxelPos x y z) =
-  x>=0 && y>=0 && z>=0 && x<maxX && y<maxY && z<maxZ
+checkPosBound :: VoxBoxRange -> VoxelPos -> Bool
+checkPosBound VoxBoxRange{..} pos = let
+  (VoxBoxDim maxX maxY maxZ) = vbrDim
+  (VoxelPos x y z)           = pos #-# vbrOrigin
+  in x>=0 && y>=0 && z>=0 && x<maxX && y<maxY && z<maxZ
+
+{-# INLINE unsafeGetVoxelID #-}    
+unsafeGetVoxelID :: VoxBoxRange -> VoxelPos -> Int
+unsafeGetVoxelID VoxBoxRange{..} pos = let
+  (VoxBoxDim maxX maxY _) = vbrDim
+  (VoxelPos x y z)        = pos #-# vbrOrigin
+  in abs x + abs (maxX*y) + abs (maxX*maxY*z)
 
 {-# INLINE getVoxelID #-}    
-getVoxelID :: VoxBoxDim -> VoxelPos -> Maybe Int
-getVoxelID bdim pos
-  | checkPosBound bdim pos = return $ unsafeGetVoxelID bdim pos
-  | otherwise              = Nothing
-
-{-# INLINE getVoxelPos #-}    
-getVoxelPos :: VoxBoxDim -> Int -> Maybe VoxelPos
-getVoxelPos (VoxBoxDim dx dy dz) i
-  | dx <= 0 && dy <= 0 && dz <= 0 = Nothing
-  | qx < dx && qy < dy && qz < dz = return $ VoxelPos qx qy qz
-  | otherwise                     = Nothing
+getVoxelID :: VoxBoxRange -> VoxelPos -> Maybe Int
+getVoxelID vbr pos
+  | checkPosBound vbr pos = return $ unsafeGetVoxelID vbr pos
+  | otherwise             = Nothing
+                            
+{-# INLINE unsafeGetVoxelPos #-}    
+unsafeGetVoxelPos :: VoxBoxRange -> Int -> VoxelPos
+unsafeGetVoxelPos VoxBoxRange{..} i = vbrOrigin #+# VoxelPos qx qy qz
   where
+    (VoxBoxDim dx dy dz) = vbrDim
     (qz, rz) = i  `divMod` (dx*dy)
     (qy, ry) = rz `divMod` dx
     qx       = ry
+                           
+{-# INLINE getVoxelPos #-}    
+getVoxelPos :: VoxBoxRange -> Int -> Maybe VoxelPos
+getVoxelPos VoxBoxRange{..} i 
+  | dx <= 0 && dy <= 0 && dz <= 0 = Nothing
+  | qx < dx && qy < dy && qz < dz = return $ vbrOrigin #+# VoxelPos qx qy qz
+  | otherwise                     = Nothing
+  where
+    (VoxBoxDim dx dy dz) = vbrDim
+    (qz, rz) = i  `divMod` (dx*dy)
+    (qy, ry) = rz `divMod` dx
+    qx       = ry
+
+{-# INLINE (%@)  #-} 
+(%@) :: VoxBoxRange -> VoxelPos -> Int
+vbr %@ pos = unsafeGetVoxelID vbr pos
+
+{-# INLINE (%@?) #-} 
+(%@?) :: VoxBoxRange -> VoxelPos -> Maybe Int
+vbr %@? pos = getVoxelID vbr pos
+              
+{-# INLINE (%#) #-} 
+(%#) :: VoxBoxRange -> Int -> VoxelPos
+vbr %# i = unsafeGetVoxelPos vbr i
+
+{-# INLINE (%#?) #-} 
+(%#?) :: VoxBoxRange -> Int -> Maybe VoxelPos
+vbr %#? i = getVoxelPos vbr i
 
 {-# INLINE (#+#) #-} 
 (#+#) :: VoxelPos -> VoxelPos -> VoxelPos
@@ -129,6 +171,15 @@ evalLinPos vbox dir pos
     vx = (ix - dx/2) + dx * (fromIntegral pos)
     vy = (iy - dy/2) + dy * (fromIntegral pos)
     vz = (iz - dz/2) + dz * (fromIntegral pos)
+
+evalDisplacedVoxelPos :: VoxBox a -> CartesianDir -> VoxelPos -> Vec3
+evalDisplacedVoxelPos vbox dir vpos = let
+  v = evalVoxelPos vbox vpos
+  VoxelDim dx dy dz = spacing vbox
+  in case dir of
+  XDir -> v &+ Vec3 dx 0  0
+  YDir -> v &+ Vec3 0  dy 0
+  ZDir -> v &+ Vec3 0  0  dz
 
 evalVoxelPos :: VoxBox a -> VoxelPos -> Vec3
 evalVoxelPos vbox (VoxelPos x y z) = let
@@ -222,8 +273,8 @@ splitBox box@(VoxBoxRange org dim) = let
   (bbll, bbul, bbur, bblr, btur, btlr, btll, btul) = getBox box
   
   getStdBox bx cx
-    | isInBox box cx = return $ posRange2VoxBox bx cx
-    | otherwise      = Nothing
+    | isInBox box bx && isInBox box cx = return $ posRange2VoxBox bx cx
+    | otherwise                        = Nothing
                   
   bll = getStdBox bbll cbll
   bul = getStdBox bbul cbul
@@ -267,3 +318,16 @@ maskVoxelPos dir (VoxelPos x y z) = case dir of
   XDir -> VoxelPos x 0 0
   YDir -> VoxelPos 0 y 0
   ZDir -> VoxelPos 0 0 z
+
+mkStdVoxBoxRange :: VoxBoxDim -> VoxBoxRange 
+mkStdVoxBoxRange = VoxBoxRange (VoxelPos 0 0 0)
+
+sizeVoxBoxRange :: VoxBoxRange -> Int
+sizeVoxBoxRange = (\(x,y,z) -> x * y * z) . getVoxBoxDim . vbrDim
+
+getRangePos :: VoxBoxRange -> [VoxelPos]
+getRangePos (VoxBoxRange (VoxelPos x y z) (VoxBoxDim dx dy dz)) = 
+  [ VoxelPos i j k | i <- [x .. x + dx]
+                   , j <- [y .. y + dy]
+                   , k <- [z .. z + dz]]
+ 
