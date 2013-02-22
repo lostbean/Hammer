@@ -19,15 +19,15 @@ import           Debug.Trace
 
 type MicroVoxel = MicroGraph [VoxelPos] [FacePos] [EdgePos] [VoxelPos] -- Insert proper v (vertex) type
 
-getMicroVoxel :: VoxBox Int -> MicroVoxel
+getMicroVoxel :: VoxBox GrainID -> MicroVoxel
 getMicroVoxel vbox = foldl (getInterfaces vbox) initMicroGraph (scanMicro vbox)
 
-scanMicro :: VoxBox Int -> [VoxelPos]
+scanMicro :: VoxBox GrainID -> [VoxelPos]
 scanMicro VoxBox{..} = let
-  VoxBoxDim xmax ymax zmax = dimension
+  VoxBoxDim xmax ymax zmax = vbrDim dimension
   in [VoxelPos x y z | z <- [0..zmax-1], y <- [0..ymax-1], x <- [0..xmax-1]]
 
-getInterfaces :: VoxBox Int -> MicroVoxel -> VoxelPos -> MicroVoxel
+getInterfaces :: VoxBox GrainID -> MicroVoxel -> VoxelPos -> MicroVoxel
 getInterfaces vbox@VoxBox{..} micrograph pos = let
   --dbg a = trace (show pos ++ ": " ++ show a) a
   
@@ -49,17 +49,17 @@ getInterfaces vbox@VoxBox{..} micrograph pos = let
   pzx  = vbox#!vzx
   pxyz = vbox#!vxyz
 
-  fx = mkFaceID <$> checkFace p px
-  fy = mkFaceID <$> checkFace p py
-  fz = mkFaceID <$> checkFace p pz
+  fx = mkFaceID' <$> checkFace p px
+  fy = mkFaceID' <$> checkFace p py
+  fz = mkFaceID' <$> checkFace p pz
 
-  ex = mkEdgeID <$> checkEgde p py pz pyz
-  ey = mkEdgeID <$> checkEgde p pz px pzx
-  ez = mkEdgeID <$> checkEgde p px py pxy
+  ex = mkEdgeID' <$> checkEgde p py pz pyz
+  ey = mkEdgeID' <$> checkEgde p pz px pzx
+  ez = mkEdgeID' <$> checkEgde p px py pxy
 
-  emx = mkEdgeID <$> checkEgde px pxy pzx pxyz
-  emy = mkEdgeID <$> checkEgde py pyz pxy pxyz
-  emz = mkEdgeID <$> checkEgde pz pzx pyz pxyz
+  emx = mkEdgeID' <$> checkEgde px pxy pzx pxyz
+  emy = mkEdgeID' <$> checkEgde py pyz pxy pxyz
+  emz = mkEdgeID' <$> checkEgde pz pzx pyz pxyz
 
   vertex = checkVertex p px py pz pxy pyz pzx pxyz
 
@@ -75,7 +75,7 @@ getInterfaces vbox@VoxBox{..} micrograph pos = let
       ne   = length $ catMaybes [ex, ey, ez, emx, emy, emz]
       ps   = catMaybes [p0, p1, p2, p3, p4, p5, p6, p7]
       getV = case nub ps of
-        [a,b,c,d]   -> traceShow (mkVertexID (a,b,c,d), pos) $ Just $ mkVertexID (a,b,c,d)
+        [a,b,c,d]   -> traceShow (mkVertexID' (a,b,c,d), pos) $ Just $ mkVertexID' (a,b,c,d)
         (a:b:c:d:_) -> traceShow (">>>" ++ msg) Nothing
         _           -> Nothing
 
@@ -92,7 +92,7 @@ getInterfaces vbox@VoxBox{..} micrograph pos = let
   insertOne func (Just key, value) = func key value
   insertOne _    _                 = id
    
-  newGrain  = insertOne  (insertNewGrain  (++)) (fmap mkGrainID p, [pos])
+  newGrain  = insertOne  (insertNewGrain  (++)) (p, [pos])
   newFace   = insertList (insertNewFace   (++)) fs 
   newTriple = insertList (insertNewEdge   (++)) es
   newQuadri = insertOne  (insertNewVertex (errV (vertex, pos, fs, es))) (vertex, [pos])

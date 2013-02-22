@@ -15,11 +15,19 @@ module Hammer.MicroGraph.Types
   , mkFaceID
   , mkEdgeID
   , mkVertexID
+    
+  , mkFaceID'
+  , mkEdgeID'
+  , mkVertexID'
 
   , unGrainID
   , unFaceID
   , unEdgeID
   , unVertexID
+    
+  , unFaceID'
+  , unEdgeID'
+  , unVertexID'
 
   , MicroEdge      (..)
   , GrainProp      (..)
@@ -36,79 +44,108 @@ module Hammer.MicroGraph.Types
 -- External modules
 import qualified Data.List as L
 
-import Data.Hashable       (Hashable, hashWithSalt)
-import Data.HashMap.Strict (HashMap)
-import Data.IntMap         (IntMap)
+import           Control.DeepSeq
+import           Data.HashMap.Strict (HashMap)
+import           Data.Hashable       (Hashable, hashWithSalt)
+import           Data.IntMap         (IntMap)
 
 -- ==========================================================================================
 
-newtype GrainID  = GrainID   Int                 deriving (Show, Eq, Ord)
-newtype FaceID   = FaceID   (Int, Int)           deriving (Show)
-newtype EdgeID   = EdgeID   (Int, Int, Int)      deriving (Show)
-newtype VertexID = VertexID (Int, Int, Int, Int) deriving (Show)
+newtype GrainID = GrainID Int deriving (Show, Eq, Ord)
+                                        
+data FaceID     = FaceID
+                  {-# UNPACK #-} !GrainID
+                  {-# UNPACK #-} !GrainID
+                deriving (Show, Eq, Ord)
+                       
+data EdgeID     = EdgeID
+                  {-# UNPACK #-} !GrainID
+                  {-# UNPACK #-} !GrainID
+                  {-# UNPACK #-} !GrainID
+                deriving (Show, Eq, Ord)
+
+data VertexID   = VertexID
+                  {-# UNPACK #-} !GrainID
+                  {-# UNPACK #-} !GrainID
+                  {-# UNPACK #-} !GrainID
+                  {-# UNPACK #-} !GrainID
+                deriving (Show, Eq, Ord)
 
 mkGrainID :: Int -> GrainID 
 mkGrainID = GrainID
 
 mkFaceID :: (Int, Int)-> FaceID 
-mkFaceID = FaceID . fast2DSort
+mkFaceID = let
+  func (a, b) = FaceID (GrainID a) (GrainID b)
+  in func . fast2DSort
 
 mkEdgeID :: (Int, Int, Int)-> EdgeID 
-mkEdgeID = EdgeID . fast3DSort
-
+mkEdgeID = let
+  func (a, b, c) = EdgeID (GrainID a) (GrainID b) (GrainID c)
+  in func . fast3DSort
+    
 mkVertexID :: (Int, Int, Int, Int)-> VertexID 
-mkVertexID = VertexID . fast4DSort
+mkVertexID = let
+  func (a, b, c, d) = VertexID (GrainID a) (GrainID b) (GrainID c) (GrainID d)
+  in func . fast4DSort
+
+mkFaceID' :: (GrainID, GrainID)-> FaceID 
+mkFaceID' = (\(a,b) -> FaceID  a b) . fast2DSort
+
+mkEdgeID' :: (GrainID, GrainID, GrainID)-> EdgeID 
+mkEdgeID' = (\(a,b,c) -> EdgeID a b c) . fast3DSort
+
+mkVertexID' :: (GrainID, GrainID, GrainID, GrainID)-> VertexID 
+mkVertexID' = (\(a,b,c,d) -> VertexID a b c d) . fast4DSort
 
 
 unGrainID :: GrainID -> Int
 unGrainID (GrainID x) = x
 
 unFaceID :: FaceID -> (Int, Int)
-unFaceID (FaceID x) = x 
+unFaceID (FaceID a b) = (unGrainID a, unGrainID b) 
 
 unEdgeID :: EdgeID -> (Int, Int, Int)
-unEdgeID (EdgeID x) = x
+unEdgeID (EdgeID a b c) = (unGrainID a, unGrainID b, unGrainID c)
 
 unVertexID :: VertexID -> (Int, Int, Int, Int)
-unVertexID (VertexID x) = x
+unVertexID (VertexID a b c d) = (unGrainID a, unGrainID b, unGrainID c, unGrainID d)
+
+unFaceID' :: FaceID -> (GrainID, GrainID)
+unFaceID' (FaceID a b) = (a, b) 
+
+unEdgeID' :: EdgeID -> (GrainID, GrainID, GrainID)
+unEdgeID' (EdgeID a b c) = (a, b, c)
+
+unVertexID' :: VertexID -> (GrainID, GrainID, GrainID, GrainID)
+unVertexID' (VertexID a b c d) = (a, b, c, d)
+
+
+instance NFData GrainID where
+  rnf (GrainID x) = rnf x
+
+instance NFData FaceID where
+  rnf (FaceID a b) = rnf a `seq` rnf b
+
+instance NFData EdgeID where
+  rnf (EdgeID a b c) = rnf a `seq` rnf b `seq` rnf c
+
+instance NFData VertexID where
+  rnf (VertexID a b c d) = rnf a `seq` rnf b `seq` rnf c `seq` rnf d
 
 
 instance Hashable GrainID where
   hashWithSalt i (GrainID x) = hashWithSalt i x
 
 instance Hashable FaceID where
-  hashWithSalt i (FaceID x) = hashWithSalt i (fast2DSort x)
+  hashWithSalt i (FaceID a b) = hashWithSalt i (a,b)
 
 instance Hashable EdgeID where
-  hashWithSalt i (EdgeID x) = hashWithSalt i (fast3DSort x)
+  hashWithSalt i (EdgeID a b c) = hashWithSalt i (a,b,c)
  
 instance Hashable VertexID where
-  hashWithSalt i (VertexID x) = hashWithSalt i (fast4DSort x)
+  hashWithSalt i (VertexID a b c d) = hashWithSalt i (a,b,c,d)
   
-instance Eq VertexID where
-  x == y = compare x y == EQ
-instance Ord VertexID where
-  compare (VertexID a) (VertexID b) = compare a' b'
-    where
-    a' = fast4DSort a
-    b' = fast4DSort b
-
-instance Eq EdgeID where
-  x == y = compare x y == EQ
-instance Ord EdgeID where
-  compare (EdgeID a) (EdgeID b) = compare a' b'
-    where
-    a' = fast3DSort a
-    b' = fast3DSort b
-
-instance Eq FaceID where
-  x == y = compare x y == EQ
-instance Ord FaceID where
-  compare (FaceID a) (FaceID b) = compare a' b'
-    where
-    a' = fast2DSort a
-    b' = fast2DSort b
-
 
 {-# INLINE fast4DSort #-}
 fast4DSort :: (Ord a)=> (a,a,a,a) -> (a,a,a,a)
