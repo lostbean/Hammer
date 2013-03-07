@@ -74,13 +74,14 @@ Library
                     Hammer.Render.VTK.VTKRender
                     Hammer.Render.VoxBoxVTK
 
-                    Hammer.MicroGraph.GrainsGraph
-                    
+                    Hammer.MicroGraph
+
                     Hammer.VoxBox.Base
                     Hammer.VoxBox.GrainFinder
                     Hammer.VoxBox.MicroVoxel
 
                     Hammer.Texture.Harmonics.BaseFunctions
+
                     --Hammer.Texture.Symmetry
                     --Hammer.Texture.Orientation
                     --Hammer.Reader.ANGReader
@@ -88,7 +89,10 @@ Library
   other-modules:
                     Hammer.Render.VTK.VTKXMLTemplate
                     Hammer.Render.VTK.Types
+                    
                     Hammer.MicroGraph.Types
+                    Hammer.MicroGraph.GrainGraphReader
+                    Hammer.MicroGraph.GrainGraphBuilder
 
   exposed:        True
   buildable:      True

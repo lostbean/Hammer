@@ -15,7 +15,7 @@ import           Data.HashMap.Strict            (HashMap)
 import           Data.Maybe                     (mapMaybe)
 import           Data.Vector                    (Vector)
 import           Data.Vector.Mutable            (write)
-import           Hammer.MicroGraph.GrainsGraph  (GrainID, mkGrainID)
+import           Hammer.MicroGraph              (GrainID, mkGrainID)
 import           Hammer.VoxBox.Base
 
 import           Control.DeepSeq

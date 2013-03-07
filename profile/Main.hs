@@ -1,19 +1,21 @@
 {-# LANGUAGE RecordWildCards #-}
 module Main where
 
+import qualified Data.Vector                            as V
+
 import           Data.List
-import qualified Data.Vector as V
-import           Hammer.MicroGraph.GrainsGraph
+import           Hammer.MicroGraph
 import           Hammer.Render.VTK.VTKRender
 import           Hammer.Render.VoxBoxVTK
 import           Hammer.Texture.Harmonics.BaseFunctions
 import           Hammer.VoxBox.Base
 import           Hammer.VoxBox.GrainFinder
 import           Hammer.VoxBox.MicroVoxel
-import           Numeric.Container (add, scale, buildMatrix)
+import           Numeric.Container                       (add, scale, buildMatrix)
 import           Options.Applicative
 import           Prelude
 import           System.Random
+import           TestGrainFinder
 
 data Tester =
   Tester
@@ -21,6 +23,7 @@ data Tester =
   , run_test_GrainFinder    :: Maybe String
   , run_profile_GrainFinder :: Maybe String
   , run_profile_VTKRender   :: Maybe String
+  , run_test_suit           :: Bool
   } deriving (Show)
 
 tester :: Parser Tester
@@ -45,6 +48,10 @@ tester = Tester
       <> short 'r'
       <> metavar "VTK_OUT"
       <> help "Profile VTKRender module" )
+  <*> switch
+      (  long "test-suit"
+      <> short 't'
+      <> help "Run test suit." )
 
 parseMaybeOpt cfg = (Just <$> strOption cfg) <|> pure Nothing
 
@@ -59,6 +66,10 @@ main = execParser opts >>= run
        
 run :: Tester -> IO ()
 run Tester{..} = do
+  if run_test_suit
+    then runChecker
+    else print "Skiping test suit."
+  
   case run_proflie_harmonics of
     Just x -> profile_harmonics x
     _      -> print "Skiping harmonics profile." 
@@ -92,7 +103,7 @@ profile_harmonics fout = do
   saveToVTKPlot (fout ++ ".vti") p
 
 profile_VTKRender fout = let
-  vbox = VoxBox { dimension = VoxBoxDim     100  100  100
+  vbox = VoxBox { dimension = mkStdVoxBoxRange (VoxBoxDim 100  100  100)
                 , origin    = VoxBoxOrigin  0    0    0
                 , spacing   = VoxelDim      0.25 0.25 0.25
                 , grainID   = vec }
@@ -102,30 +113,33 @@ profile_VTKRender fout = let
   in writeUniVTKfile (fout ++ ".vtr") vtk
 
 profile_GrainFinder fout = let
-  vbox = VoxBox { dimension = VoxBoxDim     20   20   20
-                , origin    = VoxBoxOrigin  0    0    0
-                , spacing   = VoxelDim      0.25 0.25 0.25
-                , grainID   = vec }
-  vec   = V.replicate (20*20*20) (2::Int)
-  in case grainFinder vbox of  
-    Just bd -> do
+  dx = 100
+  dy = 100
+  dz = 1000
+  rawVBox = VoxBox { dimension = mkStdVoxBoxRange (VoxBoxDim dx   dy   dz)
+                   , origin    = VoxBoxOrigin  0    0    0
+                   , spacing   = VoxelDim      0.25 0.25 0.25
+                   , grainID   = vec }
+  vec   = V.replicate (dx*dy*dz) (2::Int)
+  in case grainFinder rawVBox of  
+    Just (vbox, _) -> do
       let
-        vec   = V.map unGrainID $ getVectorGID bd
+        vec   = V.map unGrainID $ grainID vbox
         vtk   = renderVoxBoxVTK vbox attrs
         attrs = [mkCellAttr "GrainID" (\a _ _ -> vec V.! a)]
       writeUniVTKfile (fout ++ ".vtr") vtk
     _ -> print "Unable to find grains."
  
 test_GrainFinder fout = case grainFinder grainTest of 
-  Just bd -> do
+  Just (vbox, _) -> do
     let
-      vec   = V.map unGrainID $ getVectorGID bd
-      vtk   = renderVoxBoxVTK grainTest attrs
+      vec   = V.map unGrainID $ grainID vbox
+      vtk   = renderVoxBoxVTK vbox attrs
       attrs = [mkCellAttr "GrainID" (\a _ _ -> vec V.! a)]
     writeUniVTKfile (fout ++ ".vtr") vtk
   _ -> print "Unable to find grains." 
 
-grainTest = VoxBox { dimension = VoxBoxDim     21   15   5
+grainTest = VoxBox { dimension = mkStdVoxBoxRange (VoxBoxDim 21   15   5)
                    , origin    = VoxBoxOrigin  0    0    0
                    , spacing   = VoxelDim      0.25 0.25 0.25
                    , grainID   = g }

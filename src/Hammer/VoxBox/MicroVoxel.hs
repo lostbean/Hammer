@@ -1,26 +1,34 @@
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE TypeFamilies #-}
 
 module Hammer.VoxBox.MicroVoxel
   ( MicroVoxel
   , getMicroVoxel
   ) where
 
-import           Control.Applicative   ((<$>))
-import           Data.Maybe            (isJust, catMaybes)
+import qualified Data.IntSet           as IS
+import qualified Data.HashMap.Strict   as HM
+import qualified Data.HashSet          as HS
+  
+import           Data.IntSet           (IntSet)
+import           Data.HashMap.Strict   (HashMap)
+import           Data.Maybe            (isJust, catMaybes, mapMaybe)
 
+import           Control.Applicative
 import           Data.List
 
-import           Hammer.MicroGraph.GrainsGraph
+import           Hammer.MicroGraph
 import           Hammer.VoxBox.Base
 
 import           Debug.Trace
 
--- ================================ Find Microstruture Graph =====================================
+-- ================================ Find Microstruture Graph ================================
 
-type MicroVoxel = MicroGraph [VoxelPos] [FacePos] [EdgePos] [VoxelPos] -- Insert proper v (vertex) type
+-- Insert proper v (vertex) type
+type MicroVoxel = MicroGraph [VoxelPos] [FacePos] [EdgePos] VoxelPos
 
 getMicroVoxel :: VoxBox GrainID -> MicroVoxel
-getMicroVoxel vbox = foldl (getInterfaces vbox) initMicroGraph (scanMicro vbox)
+getMicroVoxel vbox = fix $ foldl (getInterfaces vbox) initMicroGraph (scanMicro vbox)
 
 scanMicro :: VoxBox GrainID -> [VoxelPos]
 scanMicro VoxBox{..} = let
@@ -29,7 +37,6 @@ scanMicro VoxBox{..} = let
 
 getInterfaces :: VoxBox GrainID -> MicroVoxel -> VoxelPos -> MicroVoxel
 getInterfaces vbox@VoxBox{..} micrograph pos = let
-  --dbg a = trace (show pos ++ ": " ++ show a) a
   
   v    = pos
   vx   = pos #+# (VoxelPos (-1)   0    0 )
@@ -49,35 +56,22 @@ getInterfaces vbox@VoxBox{..} micrograph pos = let
   pzx  = vbox#!vzx
   pxyz = vbox#!vxyz
 
-  fx = mkFaceID' <$> checkFace p px
-  fy = mkFaceID' <$> checkFace p py
-  fz = mkFaceID' <$> checkFace p pz
+  fx = checkFace p px
+  fy = checkFace p py
+  fz = checkFace p pz
 
-  ex = mkEdgeID' <$> checkEgde p py pz pyz
-  ey = mkEdgeID' <$> checkEgde p pz px pzx
-  ez = mkEdgeID' <$> checkEgde p px py pxy
+  ex = checkEgde p py pyz pz
+  ey = checkEgde p pz pzx px
+  ez = checkEgde p py pxy px
 
-  emx = mkEdgeID' <$> checkEgde px pxy pzx pxyz
-  emy = mkEdgeID' <$> checkEgde py pyz pxy pxyz
-  emz = mkEdgeID' <$> checkEgde pz pzx pyz pxyz
-
-  vertex = checkVertex p px py pz pxy pyz pzx pxyz
-
-  checkVertex p0 p1 p2 p3 p4 p5 p6 p7
-    | ne == 1   = traceShow msg Nothing
-    | ne == 3   = traceShow msg Nothing
-    | ne == 4   = getV
-    | ne >= 5   = traceShow "-----" getV
-    | otherwise = Nothing
-    where
-      msg  = "[VoxBoxReader] Oh my Gosh! A vertex with " ++
-             show ne ++ " edge(s) with GrainIDs: " ++ show ps
-      ne   = length $ catMaybes [ex, ey, ez, emx, emy, emz]
-      ps   = catMaybes [p0, p1, p2, p3, p4, p5, p6, p7]
-      getV = case nub ps of
-        [a,b,c,d]   -> traceShow (mkVertexID' (a,b,c,d), pos) $ Just $ mkVertexID' (a,b,c,d)
-        (a:b:c:d:_) -> traceShow (">>>" ++ msg) Nothing
-        _           -> Nothing
+  emx = checkEgde px pxy pxyz pzx
+  emy = checkEgde py pyz pxyz pxy
+  emz = checkEgde pz pyz pxyz pzx
+  
+  validEdges = catMaybes [ex, ey, ez, emx, emy, emz]
+  validNeigh = catMaybes [p, px, py, pz, pxy, pyz, pzx, pxyz]
+  
+  vertex = checkVertex validNeigh validEdges
 
   fs = [(fx, Fx pos), (fy, Fy pos), (fz, Fz pos)]
   es = [(ex, Ex pos), (ey, Ey pos), (ez, Ez pos)]
@@ -92,43 +86,130 @@ getInterfaces vbox@VoxBox{..} micrograph pos = let
   insertOne func (Just key, value) = func key value
   insertOne _    _                 = id
    
-  newGrain  = insertOne  (insertNewGrain  (++)) (p, [pos])
-  newFace   = insertList (insertNewFace   (++)) fs 
-  newTriple = insertList (insertNewEdge   (++)) es
-  newQuadri = insertOne  (insertNewVertex (errV (vertex, pos, fs, es))) (vertex, [pos])
+  newGrain  = insertOne  (insertNewGrainAutoConn  (++)) (p, [pos])
+  newFace   = insertList (insertNewFaceAutoConn   (++)) fs 
+  newTriple = insertList (\(eid, conn) prop -> insertNewEdge   (++) eid prop conn) es
+  newQuadri = insertOne  (\(vid, conn) prop -> insertNewVertex errV vid prop conn) (vertex, pos)
 
-  errV x a b = traceShow ("[VoxBoxReader] Overlaping verticies. " ++ show a ++ " <> " ++ show b ++ " *** " ++ show x ) (a ++ b)
+  errV a b = traceShow ("[MicroVoxel] Overlaping verticies. "
+                        ++ show a ++ " <> " ++ show b
+                        ++ " *** " ++ show (vertex, pos, fs, es))
+             a
                           
   in newGrain . newFace . newQuadri . newTriple $ micrograph
 
 
-checkFace :: (Eq a)=> Maybe a -> Maybe a -> Maybe (a, a)
+
+
+dbg a = trace ("::::::>> " ++ show a) a
+
+checkFace :: Maybe GrainID -> Maybe GrainID -> Maybe FaceID
 checkFace (Just a) (Just b)
-  | a /= b    = Just (a, b)
+  | a /= b    = return $ mkFaceID' (a, b)
   | otherwise = Nothing
 checkFace _ _ = Nothing
 
+-- | WARNING: In this function the sequence of the arguments matters!!! 
+-- Insert in the following sequence: A -> B -> C -> D where A* is the
+-- current @VoxelPos@.
 --
 --   D | A*
 --   -----
 --   C | B
---
--- Scan the AB -> BC -> DC -> DA
-checkEgde :: (Eq a)=> Maybe a -> Maybe a -> Maybe a -> Maybe a -> Maybe (a, a, a) 
-checkEgde Nothing _ _ _ = Nothing
-checkEgde p@(Just id0) pb pc pd
-  | ab && ad && ca && bc && dc && bd = traceShow "++++[VoxBox] Edge with more than 3 faces." Nothing
-  | ab && bc && ca = Just (id0, getID pb, getID pc)
-  | ad && dc && ca = Just (id0, getID pc, getID pd)
-  | ab && ad && bd = Just (id0, getID pb, getID pd)
-  | otherwise      = Nothing
+-- 
+-- The function will scan the faces: AB, BC, DC and DA
+checkEgde :: Maybe GrainID -> Maybe GrainID -> Maybe GrainID
+          -> Maybe GrainID -> Maybe (EdgeID, [FaceID]) 
+checkEgde pa pb pc pd
+  | not (isJust pa)     = Nothing
+  | nun == 4 && nf == 4 = out
+  | nun == 3 && nf == 3 = out
+  | otherwise           = Nothing
   where
-    getID (Just x) = x
-    getID _        = error "[VoxBoxReader] Oops, the imposible has happened.."
-    ab = isJust $ checkFace p  pb
-    ad = isJust $ checkFace p  pd
-    ca = isJust $ checkFace pc p
-    bc = isJust $ checkFace pb pc
-    dc = isJust $ checkFace pd pc
-    bd = isJust $ checkFace pb pd
+    out = do
+      newE <- mkMultiEdgeID' ns
+      return (newE, fs)
+    nun = length uns
+    nf  = length fs
+    uns = nub ns       -- list of unique neighbours
+    ns = catMaybes [pa, pb, pc, pd]
+    fs = catMaybes [ab, bc, cd, da]
+    ab = checkFace pa pb
+    bc = checkFace pb pc
+    cd = checkFace pc pd
+    da = checkFace pd pa
+    
+checkVertex :: [GrainID] -> [(EdgeID, a)] -> Maybe (VertexID, [EdgeID])
+checkVertex ns es
+  | nun <= 3  = Nothing
+  | ne  >= 3  = getV
+  | otherwise = Nothing
+  where
+    ne   = length es
+    nun  = length uns
+    uns  = nub ns       -- list of unique neighbours
+    getV = do
+      newV <- mkMultiVertexID' uns
+      return (newV, map fst es) 
 
+    
+-- -------------------------- Fix Bad Edges ---------------------------------------
+
+fix :: MicroVoxel -> MicroVoxel
+fix mg@MicroGraph{..} = let
+  bs = HM.toList $ HM.filter isBad microEdges
+  me = HM.filter (not . isBad) microEdges
+  isBad (EdgeProp (BadEdge _) _) = True
+  isBad _                        = False
+  in traceShow microFaces $ foldl' foofix (mg {microEdges=me}) bs
+
+foofix :: MicroVoxel -> (EdgeID, EdgeProp [EdgePos]) -> MicroVoxel
+foofix mg@MicroGraph{..} (k,v) = let
+  eps = fix' microVertex v
+
+  func (acc, eids@(eid:_)) newProp = let
+    newEM  = HM.insert eid newProp acc
+    newEID = getAlterEdgeID eid
+    in traceShow (newProp, newEID:eids) (newEM, newEID:eids)
+  func (acc, []) newProp = (HM.insert k newProp acc, [k])
+  
+  (me, newEIDs) = foldl' func (microEdges, [k]) eps
+  mf            = updateFaces k newEIDs microFaces
+
+  in traceShow (k,v) $ mg { microEdges = me, microFaces = mf }
+
+updateFaces :: EdgeID -> [EdgeID] -> HashMap FaceID (FaceProp a) -> HashMap FaceID (FaceProp a)
+updateFaces initEdge newEdges hmf = let
+  subs       = generateSubLevelConn initEdge
+  foo hm fid = HM.adjust (modPropConn func) fid hm
+  modPropConn f (FaceProp hm ps ) = FaceProp (f hm) ps
+  modPropConn f (NullFaceProp hm) = NullFaceProp (f hm)
+  func hm
+    | HS.member initEdge hm = (HS.delete initEdge hm) `HS.union` (HS.fromList newEdges)
+    | otherwise             = hm
+  in foldl' foo hmf subs
+
+fix' :: HashMap VertexID (VertexProp VoxelPos) -> EdgeProp [EdgePos] -> [EdgeProp [EdgePos]]
+fix' hmv (EdgeProp (BadEdge vs) prop) = let
+  func vid = case HM.lookup vid hmv of
+    Just (VertexProp pos) -> return (pos, vid)
+    _                     -> Nothing
+  ps = mapMaybe func vs
+  in fixBadEdge prop ps
+fix' _ _ = []
+
+instance SeqSeg EdgePos where
+  type SeqUnit EdgePos = VoxelPos
+  seqHead = fst . getEdgeEndPos
+  seqTail = snd . getEdgeEndPos
+  seqInv  = id 
+
+fixBadEdge :: [EdgePos] -> [(VoxelPos, VertexID)] -> [EdgeProp [EdgePos]]
+fixBadEdge es vvs = let
+  getElem x  = snd <$> find ((== x) . fst) vvs
+  out xs i f = EdgeProp (FullEdge i f) xs
+  foo (OpenSeq i f xs) = (out xs) <$> getElem i <*> getElem f
+  foo _                = Nothing
+  in case splitOpenLoop $ classifySegs es of
+    (ss, []) -> mapMaybe foo ss
+    _        -> [] 

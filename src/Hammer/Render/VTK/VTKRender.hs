@@ -157,6 +157,10 @@ instance Foldable IntMap where
 
 -- ----------------------- Basic instances ----------------------------------------------
 
+instance RenderCell (Int, Int, Int, Int) where
+  makeCell (a,b,c,d) = Vec.fromList [a,b,c,d]
+  getType _          = VTK_QUAD
+
 instance RenderCell (Int, Int, Int) where
   makeCell (a,b,c) = Vec.fromList [a,b,c]
   getType _        = VTK_TRIANGLE
