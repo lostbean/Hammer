@@ -10,15 +10,15 @@ module Hammer.MicroGraph.GrainGraphBuilder
 
   , insertNewVertex    
   , insertNewEdge 
-  --, insertNewFace 
-  --, insertNewGrain
+  , insertNewFace 
+  , insertNewGrain
 
-  , insertNewVertexAutoConn
-  , insertNewEdgeAutoConn
-  , insertNewFaceAutoConn
-  , insertNewGrainAutoConn
+  --, insertNewVertexAutoConn
+  --, insertNewEdgeAutoConn
+  --, insertNewFaceAutoConn
+  --, insertNewGrainAutoConn
     
-  , findGraph
+  --, findGraph
     
   , combinations
   , combitronics
@@ -68,19 +68,19 @@ combitronics set n func = let
 instance GrainHierarchy VertexID where
   type SubLevel     VertexID = EdgeID
   type SubLevelProp VertexID = EdgeProp
-  
+{--  
   generateSubLevelConn v = case unVertexID v of
     Left (a,b,c,d) -> let 
-      e1 = mkEdgeID (a,b,c)
-      e2 = mkEdgeID (a,b,d)
-      e3 = mkEdgeID (a,c,d)
-      e4 = mkEdgeID (b,c,d)
+      e1 = mkEdgeID' (a,b,c)
+      e2 = mkEdgeID' (a,b,d)
+      e3 = mkEdgeID' (a,c,d)
+      e4 = mkEdgeID' (b,c,d)
       in [e1, e2, e3, e4] 
     Right set -> let
-      foo [a,b,c] = mkEdgeID (a,b,c)
+      foo [a,b,c] = mkEdgeID' (a,b,c)
       foo _       = error "[GrainGraph] It can't be happening. It's must be a bug!"
       in combitronics set 3 foo
-
+--}
   updateSubLevelProp v1 old = let
     ret m = return . EdgeProp m
     retN  = return . NullEdgeProp
@@ -97,7 +97,7 @@ instance GrainHierarchy VertexID where
 instance GrainHierarchy EdgeID where
   type SubLevel     EdgeID = FaceID
   type SubLevelProp EdgeID = FaceProp
-
+{--
   generateSubLevelConn e = case unEdgeID e of
     Left (a,b,c) -> let
       f1      = mkFaceID (a,b)
@@ -108,7 +108,7 @@ instance GrainHierarchy EdgeID where
       foo [a,b] = mkFaceID (a,b)
       foo _       = error "[GrainGraph] It can't be happening. It's must be a bug!"
       in combitronics set 2 foo
-
+--}
   updateSubLevelProp e old = let
     ret m = return . FaceProp m
     retN  = return . NullFaceProp
@@ -122,11 +122,11 @@ instance GrainHierarchy EdgeID where
 instance GrainHierarchy FaceID where
   type SubLevel     FaceID = GrainID
   type SubLevelProp FaceID = GrainProp
-
+{--
   generateSubLevelConn f = let
     (a, b) = unFaceID f
     in [mkGrainID a, mkGrainID b]
-  
+ --} 
   updateSubLevelProp f old = let
     ret m = return . GrainProp m
     retN  = return . NullGrainProp
@@ -216,9 +216,32 @@ insertNewEdge func eid prop fs (mgp@MicroGraph{..}) = let
   me = alterHM (updateLevelProp prop func) eid microEdges
   mf = insertSubLevelConn eid fs microFaces
   in mgp { microFaces = mf, microEdges = me } 
- 
--- --------------------- Insert with auto deviration connections ----------------------------
 
+     
+insertNewFace :: (f -> f -> f) -> FaceID -> f
+              -> MicroGraph g f e v -> MicroGraph g f e v
+insertNewFace func fid prop (mgp@MicroGraph{..}) = let
+  mf = alterHM (updateLevelProp prop func) fid microFaces
+  mg = insertSubLevelAutoConn fid generateSubLevelConn microGrains 
+  generateSubLevelConn f = let
+    (a, b) = unFaceID f
+    in [mkGrainID a, mkGrainID b]
+  in mgp { microGrains = mg, microFaces = mf } 
+ 
+insertNewGrain :: (g -> g -> g) -> GrainID -> g -> MicroGraph g f e v -> MicroGraph g f e v
+insertNewGrain func gid prop (mgp@MicroGraph{..}) = let
+  mg = alterHM (updateLevelProp prop func) gid microGrains
+  in mgp { microGrains = mg }
+
+insertSubLevelAutoConn :: (GrainHierarchy l)
+                       => l
+                       -> (l -> [SubLevel l])
+                       -> HashMap (SubLevel l) (SubLevelProp l a)
+                       -> HashMap (SubLevel l) (SubLevelProp l a)
+insertSubLevelAutoConn l foo = insertSubLevelConn l (foo l)
+
+-- --------------------- Insert with auto deviration connections ----------------------------
+{--
 insertSubLevelAutoConn :: (GrainHierarchy l)
                        => l
                        -> HashMap (SubLevel l) (SubLevelProp l a)
@@ -253,7 +276,7 @@ insertNewGrainAutoConn :: (g -> g -> g) -> GrainID -> g -> MicroGraph g f e v ->
 insertNewGrainAutoConn func gid prop (mgp@MicroGraph{..}) = let
   mg = alterHM (updateLevelProp prop func) gid microGrains
   in mgp { microGrains = mg } 
- 
+
 -- ------------------------------ Find graph connection only -------------------------------
 
 findGraph :: HashMap VertexID (VertexProp v) -> MicroGraph () () () v
@@ -268,3 +291,4 @@ findSubLevelGraph :: (GrainHierarchy l)
                   -> HashMap (SubLevel l) (SubLevelProp l ())
 findSubLevelGraph = HM.foldlWithKey' (\acc k _ -> insertSubLevelAutoConn k acc) HM.empty
 
+--} 

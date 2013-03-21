@@ -14,18 +14,9 @@ module Hammer.MicroGraph.GrainGraphReader
   ) where
 
 -- External modules
-import qualified Data.IntMap         as IM
-import qualified Data.List           as L
-import qualified Data.Map            as M
-import qualified Data.IntSet         as IS
 import qualified Data.HashMap.Strict as HM
 
-import           Data.HashMap.Strict (HashMap)
 import           Data.HashSet        (HashSet)
-import           Data.Hashable       (Hashable)
-import           Data.IntMap         (IntMap)
-import           Data.IntSet         (IntSet)
-import           Data.Map            (Map)
 
 import           Hammer.MicroGraph.Types
 
