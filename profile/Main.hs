@@ -136,22 +136,22 @@ profile_GrainFinder fout = let
       writeUniVTKfile (fout ++ ".vtr") vtk
     _ -> print "Unable to find grains."
  
-test_GrainFinder fout = let
-  vbox = grainTest
-  (micro, vboxGID) = getMicroVoxel vbox
-  vec   = grainID vboxGID
-  vtk   = renderVoxBoxVTK vbox attrs
-  attrs = [mkCellAttr "GrainID" (\a _ _ -> unGrainID $ vec V.! a)]
-  in do
-     writeUniVTKfile (fout ++ ".vtr") vtk
-     writeUniVTKfile (fout ++ "_faces.vtu") $ renderMicroFacesVTK vbox micro
-     writeUniVTKfile (fout ++ "_edges.vtu") $ renderMicroEdgesVTK vbox micro
-     writeUniVTKfile (fout ++ "_vertex.vtu") $ renderMicroVertexVTK vbox micro
+test_GrainFinder fout = case getMicroVoxel vboxTest of
+  Nothing -> putStrLn "Sorry, I can't get the MicroVoxel"
+  Just (micro, vboxGID) -> let
+    vec   = grainID vboxGID
+    vtk   = renderVoxBoxVTK vboxTest attrs
+    attrs = [mkCellAttr "GrainID" (\a _ _ -> unGrainID $ vec V.! a)]
+    in do
+      writeUniVTKfile (fout ++ ".vtr") vtk
+      writeUniVTKfile (fout ++ "_faces.vtu") $ renderMicroFacesVTK   vboxTest micro
+      writeUniVTKfile (fout ++ "_edges.vtu") $ renderMicroEdgesVTK   vboxTest micro
+      writeUniVTKfile (fout ++ "_vertex.vtu") $ renderMicroVertexVTK vboxTest micro
 
-grainTest = VoxBox { dimension = mkStdVoxBoxRange (VoxBoxDim 21   15   5)
-                   , origin    = VoxBoxOrigin  0    0    0
-                   , spacing   = VoxelDim      1 1 1 
-                   , grainID   = g }
+vboxTest = VoxBox { dimension = mkStdVoxBoxRange (VoxBoxDim 21   15   5)
+                  , origin    = VoxBoxOrigin  0    0    0
+                  , spacing   = VoxelDim      1    1    1 
+                  , grainID   = g }
   where
     g :: V.Vector Int
     g = V.fromList
