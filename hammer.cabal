@@ -23,6 +23,36 @@ Flag test
     Description:        Build the exectable using command line.
     Default:            False
 
+Flag corrector
+    Description:        Build the ANGCorrector exectable.
+    Default:            False
+
+Executable ANGCorrector
+    main-is:           ANGCorrector.hs
+    if flag(corrector)
+       build-depends:  optparse-applicative >= 0.5
+                     , hammer
+                     , base                 == 4.*
+                     , vector               == 0.10.*
+                     
+       hs-source-dirs: profile
+       
+       ghc-options:
+                       -Wall
+                       -O2
+                       -rtsopts 
+                       -threaded 
+                       -- -eventlog
+                       -- -auto-all                       
+                       -- -caf-all
+                       -- -prof
+
+          
+       Buildable:      True
+
+    else
+       Buildable:      False
+
 Executable hammer-profile
     main-is:           Main.hs
     if flag(test)
@@ -32,6 +62,7 @@ Executable hammer-profile
                      , vector               == 0.10.*
                      , random               == 1.0.*
                      , hmatrix              == 0.14.*
+                     , unordered-containers == 0.2.*
                      , QuickCheck           == 2.5.*
                      
        hs-source-dirs: profile
@@ -41,10 +72,10 @@ Executable hammer-profile
                        -O2
                        -rtsopts 
                        -threaded 
-                       -eventlog
-                   --  -auto-all                       
-                   --  -caf-all
-                   --  -prof
+                       -- -eventlog
+                       -- -auto-all                       
+                       -- -caf-all
+                       -- -prof
 
           
        Buildable:      True
@@ -66,7 +97,9 @@ Library
                 , random               == 1.0.*
                 , parallel             >= 3.0
                 , deepseq              >= 1.2
-
+                , parsec               == 3.*
+                , blaze-builder        == 0.3.*
+                
   exposed-modules:  Hammer.Math.Vector
                     Hammer.Math.SphereProjection
                     Hammer.Math.Quaternions
@@ -77,14 +110,15 @@ Library
                     Hammer.MicroGraph
 
                     Hammer.VoxBox.Base
-                    Hammer.VoxBox.GrainFinder
+                    Hammer.VoxBox.VoxConnFinder
                     Hammer.VoxBox.MicroVoxel
 
                     Hammer.Texture.Harmonics.BaseFunctions
 
                     --Hammer.Texture.Symmetry
                     --Hammer.Texture.Orientation
-                    --Hammer.Reader.ANGReader
+                    Hammer.Reader.ANGReader
+                    Hammer.Writer.ANGWriter
 
   other-modules:
                     Hammer.Render.VTK.VTKXMLTemplate
@@ -99,9 +133,12 @@ Library
   hs-source-dirs: src
   ghc-options:
                   -O2
-                  -threaded
                   -rtsopts
                   -Wall
                   -funbox-strict-fields
+                  -threaded
                   -- -eventlog
+                  -- -auto-all                       
+                  -- -caf-all
+                  -- -prof
 

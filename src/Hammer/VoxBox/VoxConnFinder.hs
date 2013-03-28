@@ -308,7 +308,7 @@ updateDB_Vec set gid vbr vec = let
 (VoxBoxRange (VoxelPos x0 y0 z0) (VoxBoxDim dx dy _)) ~@# (VoxelPos x y z) =
   (x-x0) + dx*(y-y0) + dx*dy*(z-z0)
 
--- =============================  Instance SubBox for HashMap ==============================
+-- =============================  Instance SubBox for HashMap VoxelPos ==============================
  
 instance SubBox (HashMap VoxelPos) where   
   {-# INLINE getValue #-}
@@ -352,3 +352,35 @@ mergeHMBox d1 d2 = let
   func x1 x2 = return $ HM.union x1 x2
   in mergeMaybe func (voxConnMap d1) (voxConnMap d2)
 
+-- =============================  Instance SubBox for HashMap Int ==============================
+
+instance SubBox (HashMap Int) where   
+  {-# INLINE getValue #-}
+  getValue set range pos = (range %@? pos) >>= \x -> HM.lookup x set
+  {-# INLINE getValueUnsafe #-}
+  getValueUnsafe set range pos = unsafe_value_HM set (range %@ pos) 
+  updateDataMap = updateDB_HM_Int
+  mergeDataMap  = mergeHMBox 
+  initVoxConn hm vbrGlobal p = let
+    pid = vbrGlobal %@ p
+    vbr = VoxBoxRange p (VoxBoxDim 1 1 1)
+    (dm, dl) = if not (HM.member pid hm)
+               then (Nothing, Nothing)
+               else
+                 case getVoxelID vbrGlobal p of
+                   Just gid -> let
+                     l  = HM.singleton gid (V.singleton $ toGridType p)
+                     m  = HM.singleton pid gid
+                     in (return m, return l)
+                   _ -> (Nothing, Nothing)
+    in VoxConn vbr dm dl
+ 
+{-# INLINE updateDB_HM_Int #-}
+updateDB_HM_Int :: (GridConn g)=> Vector g -> Int -> VoxBoxRange
+            -> HashMap Int Int -> HashMap Int Int
+updateDB_HM_Int set gid range hm = let
+  func acc p = let
+    pos = range %@ (toVoxelPos p)
+    in HM.adjust (const gid) pos  acc
+  in V.foldl' func hm set
+ 

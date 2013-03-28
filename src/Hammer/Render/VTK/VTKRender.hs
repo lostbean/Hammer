@@ -34,6 +34,7 @@ module Hammer.Render.VTK.VTKRender
 
 import qualified Prelude                          as P
 import qualified Data.Vector                      as Vec
+import qualified Data.List                        as L
 import qualified Data.IntMap                      as IM
 import qualified Text.XML.Generator               as X
 import qualified Data.Text                        as T
@@ -148,6 +149,9 @@ addCell set _ = set
 
 class Foldable cont where
   folder::(a -> b -> a) -> a -> cont b -> a
+
+instance Foldable [] where
+  folder = L.foldl'
 
 instance Foldable Vector where
   folder = foldl'

@@ -44,6 +44,9 @@ module Hammer.MicroGraph.Types
   , HasPropValue   (..)
   , HasPropConn    (..)
 
+  , insertUniqueHM
+  , alterHM 
+
   , closeSeq
   , SeqSeg (..)
 
@@ -59,6 +62,7 @@ module Hammer.MicroGraph.Types
 import qualified Data.List           as L
 import qualified Data.IntSet         as IS
 import qualified Data.Set            as S
+import qualified Data.HashMap.Strict as HM
 
 import           Control.DeepSeq
 import           Data.HashMap.Strict (HashMap)
@@ -375,6 +379,20 @@ class (HasPropValue prop)=> HasPropConn prop where
     v <- getPropValue p
     c <- getPropConn  p
     return (v, c)
+
+-- ============================ HashMap Operations ============================================
+                               
+insertUniqueHM :: (Eq k, Hashable k)=> a -> k -> (k -> k) -> HashMap k a -> (k, HashMap k a) 
+insertUniqueHM v k func m
+  | HM.member k m = insertUniqueHM v (func k) func m
+  | otherwise     = (k, HM.insert k v m)
+
+alterHM :: (Eq k, Hashable k)=> (Maybe a -> Maybe a) -> k -> HashMap k a -> HashMap k a 
+alterHM f k m = case f $ HM.lookup k m of
+  Just x -> HM.insert k x m
+  _      -> HM.delete k m
+
+
 
 -- ====================================== Close Seqeunce ====================================
 

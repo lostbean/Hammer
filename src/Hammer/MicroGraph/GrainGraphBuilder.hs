@@ -13,10 +13,14 @@ module Hammer.MicroGraph.GrainGraphBuilder
   , insertNewFace 
   , insertNewGrain
 
-  --, insertNewVertexAutoConn
-  --, insertNewEdgeAutoConn
-  --, insertNewFaceAutoConn
-  --, insertNewGrainAutoConn
+  , insertVertexConn
+  , insertEdgeConn
+  , insertFaceConn
+    
+  , insertVertexProp
+  , insertEdgeProp
+  , insertFaceProp
+  , insertGrainProp
     
   --, findGraph
     
@@ -26,18 +30,12 @@ module Hammer.MicroGraph.GrainGraphBuilder
   ) where
 
 -- External modules
-import qualified Data.IntMap         as IM
 import qualified Data.List           as L
-import qualified Data.Map            as M
 import qualified Data.IntSet         as IS
 import qualified Data.HashSet        as HS
 import qualified Data.HashMap.Strict as HM
 
-import Data.Hashable       (Hashable)
 import Data.HashMap.Strict (HashMap)
-import Data.IntMap         (IntMap)
-import Data.Map            (Map)
-import Control.Monad       (liftM)
 import Data.IntSet         (IntSet)
 
 import Hammer.MicroGraph.Types
@@ -166,18 +164,6 @@ instance UpdateLevel VertexProp where
       VertexProp t   -> VertexProp (func v t)
       NullVertexProp -> VertexProp v
 
--- ============================ HashMap Operations ============================================
-                               
-insertUniqueHM :: (Eq k, Hashable k)=> a -> k -> (k -> k) -> HashMap k a -> (k, HashMap k a) 
-insertUniqueHM v k func m
-  | HM.member k m = insertUniqueHM v (func k) func m
-  | otherwise     = (k, HM.insert k v m)
-
-alterHM :: (Eq k, Hashable k)=> (Maybe a -> Maybe a) -> k -> HashMap k a -> HashMap k a 
-alterHM f k m = case f $ HM.lookup k m of
-  Just x -> HM.insert k x m
-  _      -> HM.delete k m
-
 -- ------------------------------- Fold functions ------------------------------------------
 
 foldSubLevelHM :: (GrainHierarchy l)
@@ -200,42 +186,92 @@ insertSubLevelConn l slcs hm =  let
   foo acu sb = foldSubLevelHM sb [l] acu
   in L.foldl' foo hm slcs
 
+
+insertVertexConn :: VertexID -> [EdgeID] -> MicroGraph g f e v -> MicroGraph g f e v
+insertVertexConn vid es (mgp@MicroGraph{..}) = let
+  me = insertSubLevelConn vid es microEdges
+  in mgp { microEdges = me }
+  
+insertEdgeConn :: EdgeID -> [FaceID] -> MicroGraph g f e v -> MicroGraph g f e v
+insertEdgeConn eid fs (mgp@MicroGraph{..}) = let
+  mf = insertSubLevelConn eid fs microFaces
+  in mgp { microFaces = mf } 
+     
+insertFaceConn :: FaceID -> MicroGraph g f e v -> MicroGraph g f e v
+insertFaceConn fid (mgp@MicroGraph{..}) = let
+  mg = insertSubLevelAutoConn fid generateSubLevelConn microGrains 
+  generateSubLevelConn f = let
+    (a, b) = unFaceID f
+    in [mkGrainID a, mkGrainID b]
+  in mgp { microGrains = mg }  
+
+-- ------------------------- Insert properties ---------------------------
+
+insertVertexProp :: (v -> v -> v) -> VertexID -> v
+                 -> MicroGraph g f e v -> MicroGraph g f e v
+insertVertexProp func vid prop (mgp@MicroGraph{..}) = let
+  mv = alterHM (updateLevelProp prop func) vid microVertex
+  in mgp { microVertex = mv }
+  
+insertEdgeProp :: (e -> e -> e) -> EdgeID -> e
+               -> MicroGraph g f e v -> MicroGraph g f e v
+insertEdgeProp func eid prop (mgp@MicroGraph{..}) = let
+  me = alterHM (updateLevelProp prop func) eid microEdges
+  in mgp { microEdges = me } 
+     
+insertFaceProp :: (f -> f -> f) -> FaceID -> f
+               -> MicroGraph g f e v -> MicroGraph g f e v
+insertFaceProp func fid prop (mgp@MicroGraph{..}) = let
+  mf = alterHM (updateLevelProp prop func) fid microFaces
+  in mgp { microFaces = mf } 
+ 
+insertGrainProp :: (g -> g -> g) -> GrainID -> g
+                -> MicroGraph g f e v -> MicroGraph g f e v
+insertGrainProp func gid prop (mgp@MicroGraph{..}) = let
+  mg = alterHM (updateLevelProp prop func) gid microGrains
+  in mgp { microGrains = mg }
+
+-- ---------- Insert unique new elements and properties ---------------
+
 insertNewVertex :: (v -> v -> v) -> VertexID -> v -> [EdgeID]
                 -> MicroGraph g f e v -> MicroGraph g f e v
 insertNewVertex func vid prop es (mgp@MicroGraph{..}) =
   case updateLevelProp prop func Nothing of
-    Just prop -> let
-      (uvid, mv) = insertUniqueHM prop vid getAlterVertexID microVertex
+    Just newProp -> let
+      (uvid, mv) = insertUniqueHM newProp vid getAlterVertexID microVertex
       me         = insertSubLevelConn uvid es microEdges
       in mgp { microEdges = me, microVertex = mv }
     _         -> mgp
   
 insertNewEdge :: (e -> e -> e) -> EdgeID -> e -> [FaceID]
               -> MicroGraph g f e v -> MicroGraph g f e v
-insertNewEdge func eid prop fs (mgp@MicroGraph{..}) = let
-  me = alterHM (updateLevelProp prop func) eid microEdges
-  mf = insertSubLevelConn eid fs microFaces
-  in mgp { microFaces = mf, microEdges = me } 
+insertNewEdge func eid prop fs (mgp@MicroGraph{..}) =
+  case updateLevelProp prop func Nothing of
+    Just newProp -> let
+      (ueid, me) = insertUniqueHM newProp eid getAlterEdgeID microEdges
+      mf         = insertSubLevelConn ueid fs microFaces
+      in mgp { microFaces = mf, microEdges = me } 
+    _         -> mgp
 
      
 insertNewFace :: (f -> f -> f) -> FaceID -> f
               -> MicroGraph g f e v -> MicroGraph g f e v
-insertNewFace func fid prop (mgp@MicroGraph{..}) = let
-  mf = alterHM (updateLevelProp prop func) fid microFaces
-  mg = insertSubLevelAutoConn fid generateSubLevelConn microGrains 
-  generateSubLevelConn f = let
-    (a, b) = unFaceID f
-    in [mkGrainID a, mkGrainID b]
-  in mgp { microGrains = mg, microFaces = mf } 
+insertNewFace func fid prop (mgp@MicroGraph{..}) = 
+  case updateLevelProp prop func Nothing of
+    Just newProp -> let
+      (ufid, mf) = insertUniqueHM newProp fid getAlterFaceID microFaces
+      mg         = insertSubLevelAutoConn ufid generateSubLevelConn microGrains 
+      generateSubLevelConn f = let
+        (a, b) = unFaceID f
+        in [mkGrainID a, mkGrainID b]
+      in mgp { microGrains = mg, microFaces = mf } 
+    _ -> mgp
  
 insertNewGrain :: (g -> g -> g) -> GrainID -> g -> MicroGraph g f e v -> MicroGraph g f e v
-insertNewGrain func gid prop (mgp@MicroGraph{..}) = let
-  mg = alterHM (updateLevelProp prop func) gid microGrains
-  in mgp { microGrains = mg }
+insertNewGrain = insertGrainProp 
 
-insertSubLevelAutoConn :: (GrainHierarchy l)
-                       => l
-                       -> (l -> [SubLevel l])
+
+insertSubLevelAutoConn :: (GrainHierarchy l)=> l -> (l -> [SubLevel l])
                        -> HashMap (SubLevel l) (SubLevelProp l a)
                        -> HashMap (SubLevel l) (SubLevelProp l a)
 insertSubLevelAutoConn l foo = insertSubLevelConn l (foo l)

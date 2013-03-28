@@ -1,5 +1,7 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE TypeFamilies #-}
 
 module Hammer.Render.VoxBoxVTK where
 
@@ -27,8 +29,24 @@ import           Debug.Trace
 -- ==========================================================================================
 
 newtype VoxBoxExt a = VoxBoxExt (VoxBox a)
-  
-renderFacePos :: VoxBoxExt a -> FacePos -> (Int, Int, Int, Int)
+
+class RenderVox elem where
+  type VTKElem elem :: *
+  renderVox    :: VoxBoxExt a -> elem -> VTKElem elem
+
+instance RenderVox FaceVoxelPos where
+  type VTKElem FaceVoxelPos = (Int, Int, Int, Int)
+  renderVox = renderFacePos
+
+instance RenderVox EdgeVoxelPos where
+  type VTKElem EdgeVoxelPos = (Int, Int)
+  renderVox = renderEdgePos
+
+instance RenderVox VoxelPos where
+  type VTKElem VoxelPos = Int
+  renderVox = renderVoxelPos
+
+renderFacePos :: VoxBoxExt a -> FaceVoxelPos -> (Int, Int, Int, Int)
 renderFacePos (VoxBoxExt vbox) face = let
   e p  = case getVoxelID (dimension vbox) p of
     Just x -> x
@@ -45,7 +63,7 @@ renderFacePos (VoxBoxExt vbox) face = let
     Fy p -> (f000 p, f100 p, f101 p, f001 p)
     Fz p -> (f000 p, f100 p, f110 p, f010 p)
 
-renderEdgePos :: VoxBoxExt a -> EdgePos -> (Int, Int)
+renderEdgePos :: VoxBoxExt a -> EdgeVoxelPos -> (Int, Int)
 renderEdgePos (VoxBoxExt vbox) edge = let
   e p  = case getVoxelID (dimension vbox) p of
     Just x -> x
@@ -91,30 +109,45 @@ renderVoxBoxVTK vbox attrs = let
   vtk = mkRLGVTK "MicroGraph" vx vy vz
   in L.foldl' addDataCells vtk attrs
 
-
-renderVTKAllVoxelEdges :: VoxBox a -> MicroVoxel -> VTK Vec3
-renderVTKAllVoxelEdges vbox mv = let
-  es    = mapMaybe (\x -> V.fromList <$> getPropValue x) . HM.elems $ microEdges mv
+renderVoxElemListVTK :: (RenderCell (VTKElem elem), RenderVox elem)=> VoxBox a -> [elem] -> VTK Vec3
+renderVoxElemListVTK vbox v = let
   vbext = getExtendedVoxBox vbox
   ps    = getVoxBoxCornersPoints vbext
-  rs    = V.map (renderEdgePos vbext) $ V.concat es
-  in mkUGVTK "MicroGraph" ps rs
+  color = V.generate (length v) id
+  rs    = map (renderVox vbext) v
+  attr  = mkCellAttr "color" (\a _ _ -> color V.! a)
+  vtk   = mkUGVTK "MicroGraph" ps rs
+  in addDataCells vtk attr
 
-renderVTKAllVoxelFaces :: VoxBox a -> MicroVoxel -> VTK Vec3
-renderVTKAllVoxelFaces vbox mv = let
-  es    = mapMaybe (\x -> V.fromList <$> getPropValue x) . HM.elems $ microFaces mv
+renderVoxElemVTK :: (RenderCell (VTKElem elem), RenderVox elem)=> VoxBox a -> [Vector elem] -> VTK Vec3
+renderVoxElemVTK vbox v = let
   vbext = getExtendedVoxBox vbox
   ps    = getVoxBoxCornersPoints vbext
-  rs    = V.map (renderFacePos vbext) $ V.concat es
-  in mkUGVTK "MicroGraph" ps rs
+  color = V.concat $ map (\(fid, x) -> V.replicate (V.length x) fid) $ zip [(1 :: Int) ..] v
+  rs    = V.map (renderVox vbext) $ V.concat v
+  attr  = mkCellAttr "color" (\a _ _ -> color V.! a)
+  vtk   = mkUGVTK "MicroGraph" ps rs
+  in addDataCells vtk attr
 
-renderVTKAllVoxelVertecies :: VoxBox a -> MicroVoxel -> VTK Vec3
-renderVTKAllVoxelVertecies vbox mv = let
-  es    = mapMaybe getPropValue . HM.elems $ microVertex mv
-  vbext = getExtendedVoxBox vbox
-  ps    = getVoxBoxCornersPoints vbext
-  rs    = V.map (renderVoxelPos vbext) $ V.fromList es
-  in mkUGVTK "MicroGraph" ps rs
+renderAllElemProp :: (RenderCell (VTKElem elem), RenderVox elem, HasPropValue prop)
+                       => VoxBox a -> [prop (Vector elem)] -> VTK Vec3
+renderAllElemProp vbox vec = let
+  ps = mapMaybe getPropValue vec
+  in renderVoxElemVTK vbox ps
+
+renderMicroGrainsVTK :: VoxBox a -> MicroVoxel -> VTK Vec3
+renderMicroGrainsVTK vbox mv = renderAllElemProp vbox (HM.elems $ microGrains mv)
+
+renderMicroEdgesVTK :: VoxBox a -> MicroVoxel -> VTK Vec3
+renderMicroEdgesVTK vbox mv = renderAllElemProp vbox (HM.elems $ microEdges mv)
+
+renderMicroFacesVTK :: VoxBox a -> MicroVoxel -> VTK Vec3
+renderMicroFacesVTK vbox mv = renderAllElemProp vbox (HM.elems $ microFaces mv)
+
+renderMicroVertexVTK :: VoxBox a -> MicroVoxel -> VTK Vec3
+renderMicroVertexVTK vbox mv = let
+  ps = mapMaybe getPropValue (HM.elems $ microVertex mv)
+  in renderVoxElemListVTK vbox ps
 
 -- ==========================================================================================
 

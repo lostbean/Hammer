@@ -2,19 +2,25 @@
 module Main where
 
 import qualified Data.Vector                            as V
+import qualified Data.HashMap.Strict                    as HM
+
+import           Data.Maybe                             (mapMaybe)
+import           Data.HashMap.Strict                    (HashMap)
+import           Numeric.Container                      (add, scale, buildMatrix)
 
 import           Data.List
+import           Options.Applicative
+import           Prelude
+import           System.Random
+
 import           Hammer.MicroGraph
 import           Hammer.Render.VTK.VTKRender
 import           Hammer.Render.VoxBoxVTK
 import           Hammer.Texture.Harmonics.BaseFunctions
 import           Hammer.VoxBox.Base
-import           Hammer.VoxBox.GrainFinder
+import           Hammer.VoxBox.VoxConnFinder
 import           Hammer.VoxBox.MicroVoxel
-import           Numeric.Container                       (add, scale, buildMatrix)
-import           Options.Applicative
-import           Prelude
-import           System.Random
+
 import           TestGrainFinder
 
 data Tester =
@@ -115,7 +121,7 @@ profile_VTKRender fout = let
 profile_GrainFinder fout = let
   dx = 100
   dy = 100
-  dz = 1000
+  dz = 100
   rawVBox = VoxBox { dimension = mkStdVoxBoxRange (VoxBoxDim dx   dy   dz)
                    , origin    = VoxBoxOrigin  0    0    0
                    , spacing   = VoxelDim      0.25 0.25 0.25
@@ -130,20 +136,25 @@ profile_GrainFinder fout = let
       writeUniVTKfile (fout ++ ".vtr") vtk
     _ -> print "Unable to find grains."
  
-test_GrainFinder fout = case grainFinder grainTest of 
-  Just (vbox, _) -> do
-    let
-      vec   = V.map unGrainID $ grainID vbox
-      vtk   = renderVoxBoxVTK vbox attrs
-      attrs = [mkCellAttr "GrainID" (\a _ _ -> vec V.! a)]
-    writeUniVTKfile (fout ++ ".vtr") vtk
-  _ -> print "Unable to find grains." 
+test_GrainFinder fout = let
+  vbox = grainTest
+  (micro, vboxGID) = getMicroVoxel vbox
+  vec   = grainID vboxGID
+  vtk   = renderVoxBoxVTK vbox attrs
+  attrs = [mkCellAttr "GrainID" (\a _ _ -> unGrainID $ vec V.! a)]
+  in do
+     writeUniVTKfile (fout ++ ".vtr") vtk
+     writeUniVTKfile (fout ++ "_faces.vtu") $ renderMicroFacesVTK vbox micro
+     writeUniVTKfile (fout ++ "_edges.vtu") $ renderMicroEdgesVTK vbox micro
+     writeUniVTKfile (fout ++ "_vertex.vtu") $ renderMicroVertexVTK vbox micro
 
 grainTest = VoxBox { dimension = mkStdVoxBoxRange (VoxBoxDim 21   15   5)
                    , origin    = VoxBoxOrigin  0    0    0
-                   , spacing   = VoxelDim      0.25 0.25 0.25
+                   , spacing   = VoxelDim      1 1 1 
                    , grainID   = g }
-  where g = V.fromList
+  where
+    g :: V.Vector Int
+    g = V.fromList
           [2,2,2,2,2,2,2,2,2,2,4,4,4,4,4,4,4,4,4,4,4
           ,2,2,2,2,2,2,2,2,2,2,4,4,4,4,4,4,4,4,4,4,4
           ,2,2,2,2,2,2,2,2,2,2,4,4,4,4,4,4,4,4,4,4,4
