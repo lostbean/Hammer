@@ -1,9 +1,9 @@
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE UndecidableInstances #-}
-{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE UndecidableInstances  #-}
+{-# LANGUAGE TypeFamilies          #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE RecordWildCards       #-}
 
 module Hammer.MicroGraph.Types
   ( GrainID
@@ -47,15 +47,6 @@ module Hammer.MicroGraph.Types
   , insertUniqueHM
   , alterHM 
 
-  , closeSeq
-  , SeqSeg (..)
-
-  , classifySegs
-  , splitOpenLoop
-  , getOneLoop
-  , getLoops
-  , Seq (..)
-    
   ) where
 
 -- External modules
@@ -73,7 +64,8 @@ import           Data.Set            (Set)
 import           Control.Monad       (liftM)
 import           Data.Maybe          (isJust)
 
-import           Debug.Trace
+--import           Debug.Trace
+
 -- ==========================================================================================
 
 newtype GrainID = GrainID Int deriving (Show, Eq, Ord)
@@ -392,124 +384,3 @@ alterHM f k m = case f $ HM.lookup k m of
   Just x -> HM.insert k x m
   _      -> HM.delete k m
 
-
-
--- ====================================== Close Seqeunce ====================================
-
-closeSeq :: (SeqSeg a, Eq (SeqUnit a))=>[a] -> Maybe [a]
-closeSeq []        = Nothing
-closeSeq [_]       = Nothing
-closeSeq (seed:xs) = liftM (seed:) (getSeq (seqTail seed) xs) 
-  where
-    --nextRef :: (SeqSeg a, Eq (SeqUnit a))=> SeqUnit a -> a -> Maybe (SeqUnit a)
-    nextRef x t
-      | x == a && x /= b = Just (b, t)
-      | x /= a && x == b = Just (a, seqInv t)
-      | otherwise        = Nothing
-      where
-        a = seqHead t
-        b = seqTail t
-
-    --isIn :: (SeqSeg a, Eq (SeqUnit a))=> SeqUnit a -> a -> Bool
-    isIn x    = isJust . nextRef x
-    --isClosure :: (SeqSeg a, Eq (SeqUnit a))=> a -> Bool
-    isClosure = isIn (seqHead seed)
-
-    --getSeq :: (SeqSeg a, Eq (SeqUnit a))=> SeqUnit a -> [a] -> Maybe ([a])
-    getSeq _ [] = Nothing
-    getSeq ref rs = case getNext ref rs of
-      Just (newRef, x, list)
-        | null list -> if isClosure x
-                       then Just [x]
-                       else Nothing
-        | otherwise -> do
-          prox   <- getSeq newRef list
-          return (x:prox)
-      _             -> Nothing
-      
-    --getNext :: (SeqSeg a, Eq (SeqUnit a))=> SeqUnit a -> [a] -> Maybe (a, [a])
-    getNext ref ss = case break (isIn ref) ss of
-      ([], [])   -> Nothing
-      (_ , [])   -> Nothing
-      (as, b:bs) -> do
-        (next, rest) <- nextRef ref b
-        return (next, rest, as ++ bs)
-        
-class SeqSeg a where
-  type SeqUnit a
-  seqHead :: (Eq (SeqUnit a))=> a -> SeqUnit a
-  seqTail :: (Eq (SeqUnit a))=> a -> SeqUnit a
-  seqInv  :: a -> a
-
-instance SeqSeg (a, a) where
-  type SeqUnit (a, a) = a
-  seqHead = fst
-  seqTail = snd
-  seqInv (a,b) = (b,a) 
-
-instance (Show (SeqUnit a), Show a, SeqSeg a)=> Show (Seq a) where
-  show (OpenSeq a b s) = "OpenSeq " ++ show (a,b) ++ " " ++ show s
-  show (LoopSeq s)     = "LoopSeq " ++ show s
-  
-data (SeqSeg a)=> Seq a
-  = OpenSeq
-    { seqIni  :: !(SeqUnit a)
-    , seqEnd  :: !(SeqUnit a)
-    , seqList :: [a]
-    }
-  | LoopSeq { loopList :: [a] }
-
--- | Classify a list segments in @OpenSeq@ and @LoopSeq@
--- Expect chunk of linear sequences. Branches and interconnections
--- might show unpredictable behavior.
-classifySegs :: (Eq (SeqUnit a), SeqSeg a)=> [a] -> [Seq a]
-classifySegs ps = let
-  sl = let
-    toSeq x
-      | a == b    = LoopSeq [x]
-      | otherwise = OpenSeq a b [x]
-      where
-        a = seqHead x
-        b = seqTail x
-    in map toSeq ps
-
-  isIn i1 f1 (OpenSeq i2 f2 _) = i1 == i2 || i1 == f2
-                              || f1 == i2 || f1 == f2
-  isIn _ _ _ = False
-
-  rev = reverse . map seqInv
-
-  merge (OpenSeq i1 f1 sl1) (OpenSeq i2 f2 sl2)
-    | i1 == f2 && i2 == f1 = LoopSeq (sl2 ++ sl1)
-    | i1 == i2 && f1 == f2 = LoopSeq (sl2 ++ sl1)
-    | i1 == f2 = OpenSeq i2 f1 (sl2       ++       sl1)
-    | i2 == f1 = OpenSeq i1 f2 (sl1       ++       sl2)
-    | i1 == i2 = OpenSeq f1 f2 ((rev sl1) ++       sl2)
-    | f1 == f2 = OpenSeq i1 i2 (sl1       ++ (rev sl2))
-  merge _ _ = error "[SeqSeg] Can't merge loops. It's a bug."
-  
-  func [] rs = rs
-  func (x:xs) rs = case x of
-    OpenSeq i f _ -> case break (isIn i f) xs of
-      ([],[])    -> func xs (x:rs)
-      (_, [])    -> func xs (x:rs)
-      (as, b:bs) -> func (as ++ (merge x b):bs) rs
-    LoopSeq _    -> func xs (x:rs) 
-  in func sl []
-
-splitOpenLoop :: (SeqSeg a)=> [Seq a] -> ([Seq a], [Seq a])
-splitOpenLoop = let
-  isOpen (OpenSeq _ _ _) = True
-  isOpen _               = False              
-  in L.partition isOpen
-
-getLoops :: (Eq (SeqUnit a), SeqSeg a)=> [a] -> [[a]]
-getLoops = let
-  foo (LoopSeq x) = x
-  foo _           = error "[SeqSeg] Exepection LoopSeq. It must be a bug."
-  in map foo . fst . splitOpenLoop . classifySegs 
-    
-getOneLoop :: (Eq (SeqUnit a), SeqSeg a)=> [a] -> Maybe [a]
-getOneLoop ss = case getLoops ss of
-  [s] -> return s
-  _   -> Nothing
