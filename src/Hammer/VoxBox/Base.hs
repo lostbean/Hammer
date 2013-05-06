@@ -1,88 +1,63 @@
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE BangPatterns #-}
 
-module Hammer.VoxBox.Base where
+module Hammer.VoxBox.Base
+  ( module Hammer.VoxBox.Types
+  , (%@), (%@?), (%#), (%#?), (#-#), (#+#), (#!)
+  , checkPosBound
+  , getVoxelID
+  , getCrossPos
+  , isInBox
+  , sizeVoxBoxRange
+  , splitInTwoBox
+  , mergeVoxBoxRange
+  , mkStdVoxBoxRange
+  , getBoxLinRange
+  , getVoxBoxDim
+  , evalLinPos
+  , getRangePos
+  , xDir, yDir, zDir
+  , deltaXYplus, deltaXYminus, deltaXZplus, deltaXZminus
+  , deltaYXplus, deltaYXminus, deltaYZplus, deltaYZminus
+  , deltaZXplus, deltaZXminus, deltaZYplus, deltaZYminus
+  , getXYplus, getXYminus, getXZplus, getXZminus
+  , getYXplus, getYXminus, getYZplus, getYZminus
+  , getZXplus, getZXminus, getZYplus, getZYminus
+                                      
+  , isFaceX, isFaceY, isFaceZ
+  , toFaceVoxelPos, toFacePos
+  , isEdgeX, isEdgeY, isEdgeZ
+  , toEdgeVoxelPos, toEdgePos
+                    
+  , (#*), (#/)
+  , evalDisplacedVoxelPos
+  , evalVoxelPos
+  , evalFacePos
+  , findIntersection
+  , getEdgeEndPoints
+  , getEdgeEndPos
+  , posSet2VoxBox
+  , posRange2VoxBox
+  , isOnEdge
+  , isMinRange
+  , fastEvalVoxelPos
+
+  , Plane (..)
+  , Line  (..)
+    
+  ) where
 
 import qualified Data.Vector           as V
+import qualified Data.Vector.Unboxed   as U
 
-import Control.DeepSeq
-import Data.Vector                     (Vector, (!))
-import Data.Hashable                   (Hashable, hashWithSalt)
-import Hammer.Math.Vector              hiding (Vector)
+import           Data.Vector           (Vector, (!))
+import           Data.Bits             ((.&.), (.|.), complement)
 
--- ================================================================================
-
-data VoxBoxOrigin = VoxBoxOrigin
-                    {-# UNPACK #-} !Double
-                    {-# UNPACK #-} !Double
-                    {-# UNPACK #-} !Double
-                  deriving (Show, Eq, Ord)
-                            
-data VoxBoxRange  = VoxBoxRange
-                    { vbrOrigin :: {-# UNPACK #-} !VoxelPos
-                    , vbrDim    :: {-# UNPACK #-} !VoxBoxDim
-                    } deriving (Eq, Show)
-                           
--- | Dimension of voxel box where x, y and z >= 1
-data VoxBoxDim    = VoxBoxDim
-                    {-# UNPACK #-} !Int
-                    {-# UNPACK #-} !Int
-                    {-# UNPACK #-} !Int
-                  deriving (Show, Eq, Ord)
-
-data VoxelDim     = VoxelDim
-                    {-# UNPACK #-} !Double
-                    {-# UNPACK #-} !Double
-                    {-# UNPACK #-} !Double
-                  deriving (Show, Eq, Ord)
-                                                            
-data VoxelPos     = VoxelPos
-                    {-# UNPACK #-} !Int
-                    {-# UNPACK #-} !Int
-                    {-# UNPACK #-} !Int
-                  deriving (Show, Eq, Ord)
-
-data EdgeVoxelPos = Ex {-# UNPACK #-} !VoxelPos
-                  | Ey {-# UNPACK #-} !VoxelPos
-                  | Ez {-# UNPACK #-} !VoxelPos
-                  deriving (Show, Eq)
-                        
-data FaceVoxelPos = Fx {-# UNPACK #-} !VoxelPos
-                  | Fy {-# UNPACK #-} !VoxelPos
-                  | Fz {-# UNPACK #-} !VoxelPos
-                  deriving (Show, Eq)
-
-data VoxBox a     = VoxBox
-                    { dimension :: VoxBoxRange
-                    , origin    :: VoxBoxOrigin
-                    , spacing   :: VoxelDim 
-                    , grainID   :: Vector a
-                    } deriving (Show)
-
-data CartesianDir = XDir | YDir | ZDir deriving (Eq, Show)
-
-data CrossDir = XYplus | XYminus | XZplus | XZminus
-              | YXplus | YXminus | YZplus | YZminus
-              | ZXplus | ZXminus | ZYplus | ZYminus
-              deriving (Show, Eq)
-
-type VID = Int  -- Voxel's serial position
-
-
--- ---------------------------- Hashable instances ------------------------------
-           
-instance Hashable VoxelPos where
-  hashWithSalt i (VoxelPos a b c) = hashWithSalt i (a,b,c)
-
--- ---------------------------- DeepSeq instances -------------------------------
-           
-instance NFData VoxelPos where
-  rnf (VoxelPos x y z) = rnf x `seq` rnf y `seq` rnf z
-
-instance NFData VoxBoxDim where
-  rnf (VoxBoxDim dx dy dz) = rnf dx `seq` rnf dy `seq` rnf dz
-  
-instance NFData VoxBoxRange where
-  rnf (VoxBoxRange org dimbox) = rnf org `seq` rnf dimbox
+import Hammer.VoxBox.Types
+import Hammer.Math.Algebra
 
 -- ==============================================================================
 
@@ -111,8 +86,8 @@ unsafeGetVoxelPos :: VoxBoxRange -> Int -> VoxelPos
 unsafeGetVoxelPos VoxBoxRange{..} i = vbrOrigin #+# VoxelPos qx qy qz
   where
     (VoxBoxDim dx dy _) = vbrDim
-    (qz, rz) = i  `divMod` (dx*dy)
-    (qy, ry) = rz `divMod` dx
+    (qz, rz) = i  `quotRem` (dx*dy)
+    (qy, ry) = rz `quotRem` dx
     qx       = ry
                            
 {-# INLINE getVoxelPos #-}    
@@ -123,8 +98,8 @@ getVoxelPos VoxBoxRange{..} i
   | otherwise                     = Nothing
   where
     (VoxBoxDim dx dy dz) = vbrDim
-    (qz, rz) = i  `divMod` (dx*dy)
-    (qy, ry) = rz `divMod` dx
+    (qz, rz) = i  `quotRem` (dx*dy)
+    (qy, ry) = rz `quotRem` dx
     qx       = ry
 
 {-# INLINE (%@)  #-} 
@@ -157,9 +132,9 @@ vbr %#? i = getVoxelPos vbr i
 
 (#/) :: VoxelPos -> Int -> (VoxelPos, VoxelPos)
 (VoxelPos x y z) #/ k = let
-  (q1,r1) = x `divMod` k
-  (q2,r2) = y `divMod` k
-  (q3,r3) = z `divMod` k
+  (q1,r1) = x `quotRem` k
+  (q2,r2) = y `quotRem` k
+  (q3,r3) = z `quotRem` k
   q = VoxelPos q1 q2 q3
   r = VoxelPos r1 r2 r3
   in (q, r)
@@ -171,7 +146,7 @@ VoxBox{..} #! pos
     i = unsafeGetVoxelID dimension pos
     in return $ grainID ! i 
   | otherwise                   = Nothing
-                                  
+
 -- ======================== Directions functions ==================================
 
 xDir :: VoxelPos
@@ -183,42 +158,49 @@ yDir = VoxelPos 0 1 0
 zDir :: VoxelPos
 zDir = VoxelPos 0 0 1
 
+{-# INLINE getCrossPos #-}
 getCrossPos :: CartesianDir -> VoxelPos -> Vector (VoxelPos, CrossDir)
-getCrossPos dir p = V.map (\x -> (p #+# getDeltaPos x, x)) $ case dir of
-  XDir -> V.fromList [XYplus, XYminus, XZplus, XZminus]
-  YDir -> V.fromList [YXplus, YXminus, YZplus, YZminus]
-  ZDir -> V.fromList [ZXplus, ZXminus, ZYplus, ZYminus]
+getCrossPos dir p = case dir of
+  XDir -> V.fromList [getXYplus p, getXYminus p, getXZplus p, getXZminus p]
+  YDir -> V.fromList [getYXplus p, getYXminus p, getYZplus p, getYZminus p]
+  ZDir -> V.fromList [getZXplus p, getZXminus p, getZYplus p, getZYminus p]
   
-getXYplus, getXYminus, getXZplus, getXZminus :: VoxelPos
-getYXplus, getYXminus, getYZplus, getYZminus :: VoxelPos
-getZXplus, getZXminus, getZYplus, getZYminus :: VoxelPos
-getXYplus  = VoxelPos 1    1   0
-getXYminus = VoxelPos 1  (-1)  0
-getXZplus  = VoxelPos 1    0   1
-getXZminus = VoxelPos 1    0 (-1)
-getYXplus  = VoxelPos 1    1   0
-getYXminus = VoxelPos (-1) 1   0
-getYZplus  = VoxelPos 0    1   1
-getYZminus = VoxelPos 0    1 (-1)
-getZXplus  = VoxelPos 1    0   1
-getZXminus = VoxelPos (-1) 0   1
-getZYplus  = VoxelPos 0    1   1
-getZYminus = VoxelPos 0  (-1)  1
+deltaXYplus, deltaXYminus, deltaXZplus, deltaXZminus :: VoxelPos
+deltaYXplus, deltaYXminus, deltaYZplus, deltaYZminus :: VoxelPos
+deltaZXplus, deltaZXminus, deltaZYplus, deltaZYminus :: VoxelPos
+deltaXYplus  = VoxelPos   1    1    0   
+deltaXYminus = VoxelPos   1  (-1)   0   
+deltaXZplus  = VoxelPos   1    0    1
+deltaXZminus = VoxelPos   1    0  (-1)
+deltaYXplus  = VoxelPos   1    1    0   
+deltaYXminus = VoxelPos (-1)   1    0   
+deltaYZplus  = VoxelPos   0    1    1
+deltaYZminus = VoxelPos   0    1  (-1)
+deltaZXplus  = VoxelPos   1    0    1
+deltaZXminus = VoxelPos (-1)   0    1
+deltaZYplus  = VoxelPos   0    1    1
+deltaZYminus = VoxelPos   0  (-1)   1
 
-getDeltaPos :: CrossDir -> VoxelPos
-getDeltaPos cd = case cd of
-  XYplus  -> getXYplus
-  XYminus -> getXYminus
-  XZplus  -> getXZplus
-  XZminus -> getXZminus
-  YXplus  -> getYXplus
-  YXminus -> getYXminus 
-  YZplus  -> getYZplus
-  YZminus -> getYZminus
-  ZXplus  -> getZXplus
-  ZXminus -> getZXminus
-  ZYplus  -> getZYplus
-  ZYminus -> getZYminus
+getXYplus, getXYminus, getXZplus, getXZminus :: VoxelPos -> (VoxelPos, CrossDir)
+getYXplus, getYXminus, getYZplus, getYZminus :: VoxelPos -> (VoxelPos, CrossDir)
+getZXplus, getZXminus, getZYplus, getZYminus :: VoxelPos -> (VoxelPos, CrossDir)
+getXYplus  (VoxelPos x y z) = (VoxelPos (x+1) (y+1)  z   , XYplus )
+getXYminus (VoxelPos x y z) = (VoxelPos (x+1) (y-1)  z   , XYminus)
+getXZplus  (VoxelPos x y z) = (VoxelPos (x+1)  y    (z+1), XZplus )
+getXZminus (VoxelPos x y z) = (VoxelPos (x+1)  y    (z-1), XZminus)
+getYXplus  (VoxelPos x y z) = (VoxelPos (x+1) (y+1)  z   , YXplus )
+getYXminus (VoxelPos x y z) = (VoxelPos (x-1) (y+1)  z   , YXminus)
+getYZplus  (VoxelPos x y z) = (VoxelPos  x    (y+1) (z+1), YZplus )
+getYZminus (VoxelPos x y z) = (VoxelPos  x    (y+1) (z-1), YZminus)
+getZXplus  (VoxelPos x y z) = (VoxelPos (x+1)  y    (z+1), ZXplus )
+getZXminus (VoxelPos x y z) = (VoxelPos (x-1)  y    (z+1), ZXminus)
+getZYplus  (VoxelPos x y z) = (VoxelPos  x    (y+1) (z+1), ZYplus )
+getZYminus (VoxelPos x y z) = (VoxelPos  x    (y-1) (z+1), ZYminus)
+                                  
+-- ======================== Geometric planes and lines ==================================
+                              
+newtype Plane v u = Plane (v, u) deriving (Show, Eq)
+newtype Line  v u = Line  (v, u) deriving (Show, Eq)
 
 -- =========================== Generic tools ===================================
 
@@ -260,9 +242,6 @@ evalFacePos vbox face = let
     Fy p -> (p, Vec3 0 1 0)
     Fz p -> (p, Vec3 0 0 1)
 
-newtype Plane v u = Plane (v, u) deriving (Show, Eq)
-newtype Line  v u = Line (v, u)  deriving (Show, Eq)
-
 findIntersection :: (DotProd u, UnitVector v u)=> Plane v u -> Line v u -> Maybe v
 findIntersection (Plane (p0, n)) (Line (l0, l))
   | kb == 0         = Nothing
@@ -284,6 +263,9 @@ getEdgeEndPos edge = case edge of
   Ey p -> (p, p #+# (VoxelPos 0 1 0))
   Ez p -> (p, p #+# (VoxelPos 0 0 1))
 
+getVoxBoxDim :: VoxBoxDim -> (Int, Int, Int)
+getVoxBoxDim (VoxBoxDim x y z) = (x,y,z)
+
 {-# INLINE getBoxLinRange  #-}
 getBoxLinRange :: VoxBoxRange -> (Int, Int, Int, Int, Int, Int)
 getBoxLinRange (VoxBoxRange (VoxelPos lx ly lz) (VoxBoxDim dx dy dz)) = let
@@ -296,26 +278,7 @@ getBoxLinRange (VoxBoxRange (VoxelPos lx ly lz) (VoxBoxDim dx dy dz)) = let
     | otherwise = k 
   in (lx, ux, ly, uy, lz, uz)
 
-getVoxBoxDim :: VoxBoxDim -> (Int, Int, Int)
-getVoxBoxDim (VoxBoxDim x y z) = (x,y,z)
-
-getBox :: VoxBoxRange -> ( VoxelPos, VoxelPos, VoxelPos, VoxelPos
-                         , VoxelPos, VoxelPos, VoxelPos, VoxelPos )
-getBox br = let
-  (lx, ux, ly, uy, lz, uz) = getBoxLinRange br
-  
-  bll = VoxelPos lx ly lz
-  bul = VoxelPos lx uy lz
-  bur = VoxelPos ux uy lz
-  blr = VoxelPos ux ly lz
-
-  tur = VoxelPos ux uy uz
-  tlr = VoxelPos ux ly uz
-  tll = VoxelPos lx ly uz
-  tul = VoxelPos lx uy uz
-
-  in (bll, bul, bur, blr, tur, tlr, tll, tul) 
-
+{-# INLINE splitInTwoBox #-}    
 splitInTwoBox :: VoxBoxRange -> Maybe (VoxBoxRange, VoxBoxRange)
 splitInTwoBox box@(VoxBoxRange org boxdim)
   | sizeVoxBoxRange box <= 1 = Nothing
@@ -327,13 +290,13 @@ splitInTwoBox box@(VoxBoxRange org boxdim)
 
     divDim dir (VoxBoxDim dx dy dz)
       | dir == XDir = let
-        x = dx `div` 2
+        x = dx `quot` 2
         in (VoxBoxDim x dy dz, VoxBoxDim (dx-x) dy dz)
       | dir == YDir = let
-        y = dy `div` 2
+        y = dy `quot` 2
         in (VoxBoxDim dx y dz, VoxBoxDim dx (dy-y) dz)
       | otherwise   = let
-        z = dz `div` 2
+        z = dz `quot` 2
         in (VoxBoxDim dx dy z, VoxBoxDim dx dy (dz-z))
 
     getNewOrigin dir (VoxBoxDim dx dy dz)
@@ -345,6 +308,32 @@ splitInTwoBox box@(VoxBoxRange org boxdim)
     (dim1, dim2) = divDim divDir boxdim
     org2         = getNewOrigin divDir dim1
     in return (VoxBoxRange org dim1, VoxBoxRange org2 dim2)
+
+{-# INLINE mergeVoxBoxRange #-}    
+mergeVoxBoxRange :: VoxBoxRange -> VoxBoxRange -> Maybe (VoxBoxRange, CartesianDir, WallBoxRange)
+mergeVoxBoxRange b1 b2
+  | b1 == b2                 = Nothing
+  | ux1 + 1 == lx2 && testYZ = out XDir (box lx1 ux2 ly1 uy1 lz1 uz1) (box ux1 lx2 ly1 uy1 lz1 uz1)  
+  | ux2 + 1 == lx1 && testYZ = out XDir (box lx2 ux1 ly1 uy1 lz1 uz1) (box ux2 lx1 ly1 uy1 lz1 uz1) 
+
+  | uy1 + 1 == ly2 && testXZ = out YDir (box lx1 ux1 ly1 uy2 lz1 uz1) (box lx1 ux1 uy1 ly2 lz1 uz1)
+  | uy2 + 1 == ly1 && testXZ = out YDir (box lx1 ux1 ly2 uy1 lz1 uz1) (box lx1 ux1 uy2 ly1 lz1 uz1)
+
+  | uz1 + 1 == lz2 && testXY = out ZDir (box lx1 ux1 ly1 uy1 lz1 uz2) (box lx1 ux1 ly1 uy1 uz1 lz2)
+  | uz2 + 1 == lz1 && testXY = out ZDir (box lx1 ux1 ly1 uy1 lz2 uz1) (box lx1 ux1 ly1 uy1 uz2 lz1)
+  | otherwise                = Nothing
+  where
+    out dir br wl = return $ (br, dir, WallBoxRange wl)
+    (!lx1, !ux1, !ly1, !uy1, !lz1, !uz1) = getBoxLinRange b1
+    (!lx2, !ux2, !ly2, !uy2, !lz2, !uz2) = getBoxLinRange b2
+    testYZ = ly1 == ly2 && uy1 == uy2 && lz1 == lz2 && uz1 == uz2 
+    testXZ = lx1 == lx2 && ux1 == ux2 && lz1 == lz2 && uz1 == uz2 
+    testXY = lx1 == lx2 && ux1 == ux2 && ly1 == ly2 && uy1 == uy2 
+
+    box lx ux ly uy lz uz = let 
+      dimbox  = VoxBoxDim (1 + ux - lx) (1 + uy - ly) (1 + uz - lz)
+      new_org = VoxelPos lx ly lz
+      in VoxBoxRange new_org dimbox
 
 posSet2VoxBox :: Vector VoxelPos -> VoxBoxRange
 posSet2VoxBox ps = let
@@ -360,10 +349,11 @@ posSet2VoxBox ps = let
   (v1, v2) = V.foldl' func (zeroBox, zeroBox) ps
   in posRange2VoxBox v1 v2
 
+{-# INLINE posRange2VoxBox #-}    
 posRange2VoxBox :: VoxelPos -> VoxelPos -> VoxBoxRange
 posRange2VoxBox (VoxelPos x1 y1 z1) (VoxelPos x2 y2 z2) = let 
-  dimbox  = VoxBoxDim (foo x1 x2) (foo y1 y2) (foo z1 z2)
-  foo a b = 1 + abs (b-a)
+  dimbox    = VoxBoxDim (foo x1 x2) (foo y1 y2) (foo z1 z2)
+  foo !a !b = 1 + abs (b - a)
   lx      = min x1 x2
   ly      = min y1 y2
   lz      = min z1 z2
@@ -384,12 +374,6 @@ isMinRange :: VoxBoxRange -> Bool
 isMinRange (VoxBoxRange _ (VoxBoxDim dx dy dz)) =
   dx <= 1 && dy <= 1 && dz <= 1
                                                    
-maskVoxelPos :: CartesianDir -> VoxelPos -> VoxelPos 
-maskVoxelPos dir (VoxelPos x y z) = case dir of
-  XDir -> VoxelPos x 0 0
-  YDir -> VoxelPos 0 y 0
-  ZDir -> VoxelPos 0 0 z
-
 mkStdVoxBoxRange :: VoxBoxDim -> VoxBoxRange 
 mkStdVoxBoxRange = VoxBoxRange (VoxelPos 0 0 0)
 
@@ -399,10 +383,96 @@ sizeVoxBoxRange = let
     | x > 0 && y > 0 && z > 0 = x*y*z
     | otherwise = error "[VoxBox.Base] Invalid box dimension. Its size is negative"
   in func . getVoxBoxDim . vbrDim
-
-getRangePos :: VoxBoxRange -> [VoxelPos]
-getRangePos (VoxBoxRange (VoxelPos x y z) (VoxBoxDim dx dy dz)) = 
-  [ VoxelPos i j k | i <- [x .. x + dx]
-                   , j <- [y .. y + dy]
-                   , k <- [z .. z + dz]]
  
+getRangePos :: VoxBoxRange -> [VoxelPos]
+getRangePos VoxBoxRange{..} = let
+  VoxelPos ix iy iz = vbrOrigin 
+  (dx, dy, dz)      = getVoxBoxDim vbrDim
+  xmax = ix + dx -1
+  ymax = iy + dy -1
+  zmax = iz + dz -1
+  in [VoxelPos x y z | z <- [ix..zmax], y <- [iy..ymax], x <- [iz..xmax]]
+ 
+-- ================================ Fast and compact list of Voxel ===========================
+
+{-# INLINE fastEvalVoxelPos #-}    
+fastEvalVoxelPos :: VoxBox a -> Int -> Vec3
+fastEvalVoxelPos VoxBox{..} i = let
+  VoxBoxOrigin  ix iy iz = origin
+  VoxelDim      dx dy dz = spacing
+  VoxelPos      ibx iby ibz = vbrOrigin dimension
+  VoxBoxDim     dbx dby _   = vbrDim    dimension
+
+  (!z, !rz) = i  `quotRem` (dbx*dby)
+  (!y, !ry) = rz `quotRem` dbx
+  !x        = ry
+
+  vx = (ix - dx/2) + dx * (fromIntegral $ ibx + x)
+  vy = (iy - dy/2) + dy * (fromIntegral $ iby + y)
+  vz = (iz - dz/2) + dz * (fromIntegral $ ibz + z)
+  in Vec3 vx vy vz
+
+-- -------------------------------------------- Edges in matrix ----------------------------------------------------
+
+toEdgePos :: EdgeVoxelPos -> VoxelPos 
+toEdgePos f = let
+  foo (VoxelPos x y z) = VoxelPos (x*2) (y*2) (z*2)
+  in case f of
+    Ex p -> foo p #-# VoxelPos 0 1 1
+    Ey p -> foo p #-# VoxelPos 1 0 1
+    Ez p -> foo p #-# VoxelPos 1 1 0
+
+toEdgeVoxelPos :: EdgePos -> EdgeVoxelPos
+toEdgeVoxelPos f@(EdgePos (VoxelPos x y z))
+  | isEdgeX f = Ex $ p #+# VoxelPos 0 1 1
+  | isEdgeY f = Ey $ p #+# VoxelPos 1 0 1
+  | isEdgeZ f = Ez $ p #+# VoxelPos 1 1 0
+  | otherwise = error "Can't convert to FaceVoxelPos."
+  where p = VoxelPos (div x 2) (div y 2) (div z 2)
+
+{-# INLINE isEdgeX #-}
+isEdgeX :: EdgePos -> Bool
+isEdgeX (EdgePos (VoxelPos x y z)) = even x && odd y && odd z
+
+{-# INLINE isEdgeY #-}
+isEdgeY :: EdgePos -> Bool
+isEdgeY (EdgePos (VoxelPos x y z)) = odd x && even y && odd z
+
+{-# INLINE isEdgeZ #-}
+isEdgeZ :: EdgePos -> Bool
+isEdgeZ (EdgePos (VoxelPos x y z)) = odd x && odd y && even z
+
+-- -------------------------------------------- Faces in matrix ----------------------------------------------------
+
+toFacePos :: FaceVoxelPos -> VoxelPos 
+toFacePos f = let
+  foo (VoxelPos x y z) = VoxelPos (x*2) (y*2) (z*2)
+  in case f of
+    Fx p -> foo p #-# VoxelPos 1 0 0
+    Fy p -> foo p #-# VoxelPos 0 1 0
+    Fz p -> foo p #-# VoxelPos 0 0 1
+
+toFaceVoxelPos :: FacePos -> FaceVoxelPos
+toFaceVoxelPos f@(FacePos (VoxelPos x y z))
+  | isFaceX f = Fx $ p #+# VoxelPos 1 0 0
+  | isFaceY f = Fy $ p #+# VoxelPos 0 1 0
+  | otherwise = Fz $ p #+# VoxelPos 0 0 1
+  where p = VoxelPos (div x 2) (div y 2) (div z 2)
+
+-- | Fast bitwise test for FacePos:
+-- a -> even, b -> even, c -> odd
+{-# INLINE faceTest #-}
+faceTest :: Int -> Int -> Int -> Bool
+faceTest a b c = 0 == 1 .&. ((a .|. b) .|. complement c) 
+
+{-# INLINE isFaceX #-}
+isFaceX :: FacePos -> Bool
+isFaceX (FacePos (VoxelPos x y z)) = faceTest y z x -- odd x && even y && even z
+
+{-# INLINE isFaceY #-}
+isFaceY :: FacePos -> Bool
+isFaceY (FacePos (VoxelPos x y z)) = faceTest x z y -- even x && odd y && even z
+
+{-# INLINE isFaceZ #-}
+isFaceZ :: FacePos -> Bool
+isFaceZ (FacePos (VoxelPos x y z)) = faceTest x y z -- even x && even y && odd z
