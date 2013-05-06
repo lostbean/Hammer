@@ -5,32 +5,31 @@
 
 module Hammer.Render.VoxBoxVTK where
 
-import qualified Data.IntMap           as IM
 import qualified Data.List             as L
 import qualified Data.Vector           as V
+import qualified Data.Vector.Unboxed   as U
 import qualified Data.HashMap.Strict   as HM
-import qualified Data.HashSet          as HS
+--import qualified Data.HashSet          as HS
 
-import           Control.Applicative   ((<$>))
-import           Data.HashMap.Strict   (HashMap)
-import           Data.HashSet          (HashSet)
+--import           Control.Applicative   ((<$>))
 import           Data.Maybe            (mapMaybe)
-import           Data.Vector           (Vector)
+import           Data.Vector.Unboxed   (Vector, Unbox)
 
 import           Hammer.MicroGraph
-import           Hammer.Math.Vector             hiding (Vector)
+import           Hammer.Math.Algebra
 import           Hammer.VoxBox.Base
 import           Hammer.VoxBox.MicroVoxel
 
 import           Hammer.Render.VTK.VTKRender
 
 import           Debug.Trace
+--dbg a = trace ("@@@@@@@>> " ++ show a) a
 
 -- ==========================================================================================
 
 newtype VoxBoxExt a = VoxBoxExt (VoxBox a)
 
-class RenderVox elem where
+class (Unbox elem, Unbox (VTKElem elem))=> RenderVox elem where
   type VTKElem elem :: *
   renderVox    :: VoxBoxExt a -> elem -> VTKElem elem
 
@@ -91,9 +90,26 @@ getExtendedVoxBox vbox = let
      
 getVoxBoxCornersPoints :: VoxBoxExt a -> Vector Vec3 
 getVoxBoxCornersPoints (VoxBoxExt vbox) = let
-  range = dimension vbox
-  size  = sizeVoxBoxRange range
-  in V.generate size (evalVoxelPos vbox . (range %#))
+  VoxBox{..} = vbox 
+  VoxBoxOrigin  ix iy iz = origin
+  VoxelDim      dx dy dz = spacing
+  VoxelPos      ibx iby ibz = vbrOrigin dimension
+  VoxBoxDim     dbx dby _   = vbrDim    dimension
+
+  foo i = let
+    (z, rz) = i  `quotRem` (dbx*dby)
+    (y, ry) = rz `quotRem` dbx
+    x       = ry
+
+    vx = (ix - dx/2) + dx * (fromIntegral $ ibx + x)
+    vy = (iy - dy/2) + dy * (fromIntegral $ iby + y)
+    vz = (iz - dz/2) + dz * (fromIntegral $ ibz + z)
+    in Vec3 vx vy vz
+
+  --range = dimension vbox
+  size  = sizeVoxBoxRange dimension
+  --in U.generate size (evalVoxelPos vbox . (range %#))
+  in U.generate size foo
 
 -- ==========================================================================================
 
@@ -103,9 +119,9 @@ getVoxBoxCornersPoints (VoxBoxExt vbox) = let
 renderVoxBoxVTK :: VoxBox a -> [VTKAttrCell Double] -> VTK Double
 renderVoxBoxVTK vbox attrs = let
   (dx,dy,dz) = getVoxBoxDim . vbrDim $ dimension vbox
-  vx  = V.generate (dx+1) (evalLinPos vbox XDir)
-  vy  = V.generate (dy+1) (evalLinPos vbox YDir)
-  vz  = V.generate (dz+1) (evalLinPos vbox ZDir)
+  vx  = U.generate (dx+1) (evalLinPos vbox XDir)
+  vy  = U.generate (dy+1) (evalLinPos vbox YDir)
+  vz  = U.generate (dz+1) (evalLinPos vbox ZDir)
   vtk = mkRLGVTK "MicroGraph" vx vy vz
   in L.foldl' addDataCells vtk attrs
 
@@ -113,24 +129,24 @@ renderVoxElemListVTK :: (RenderCell (VTKElem elem), RenderVox elem)=> VoxBox a -
 renderVoxElemListVTK vbox v = let
   vbext = getExtendedVoxBox vbox
   ps    = getVoxBoxCornersPoints vbext
-  color = V.generate (length v) id
+  color = U.generate (length v) id
   rs    = map (renderVox vbext) v
-  attr  = mkCellAttr "color" (\a _ _ -> color V.! a)
+  attr  = mkCellAttr "color" (\a _ _ -> color U.! a)
   vtk   = mkUGVTK "MicroGraph" ps rs
   in addDataCells vtk attr
 
-renderVoxElemVTK :: (RenderCell (VTKElem elem), RenderVox elem)=> VoxBox a -> [Vector elem] -> VTK Vec3
+renderVoxElemVTK :: (Unbox elem, RenderCell (VTKElem elem), RenderVox elem)=> VoxBox a -> [V.Vector elem] -> VTK Vec3
 renderVoxElemVTK vbox v = let
   vbext = getExtendedVoxBox vbox
   ps    = getVoxBoxCornersPoints vbext
-  color = V.concat $ map (\(fid, x) -> V.replicate (V.length x) fid) $ zip [(1 :: Int) ..] v
+  color = U.concat $ map (\(fid, x) -> U.replicate (V.length x) fid) $ zip [(1 :: Int) ..] v
   rs    = V.map (renderVox vbext) $ V.concat v
-  attr  = mkCellAttr "color" (\a _ _ -> color V.! a)
+  attr  = mkCellAttr "color" (\a _ _ -> color U.! a)
   vtk   = mkUGVTK "MicroGraph" ps rs
   in addDataCells vtk attr
 
 renderAllElemProp :: (RenderCell (VTKElem elem), RenderVox elem, HasPropValue prop)
-                       => VoxBox a -> [prop (Vector elem)] -> VTK Vec3
+                  => VoxBox a -> [prop (V.Vector elem)] -> VTK Vec3
 renderAllElemProp vbox vec = let
   ps = mapMaybe getPropValue vec
   in renderVoxElemVTK vbox ps
@@ -143,127 +159,14 @@ renderMicroEdgesVTK vbox mv = renderAllElemProp vbox (HM.elems $ microEdges mv)
 
 renderMicroFacesVTK :: VoxBox a -> MicroVoxel -> VTK Vec3
 renderMicroFacesVTK vbox mv = renderAllElemProp vbox (HM.elems $ microFaces mv)
-
+                              
 renderMicroVertexVTK :: VoxBox a -> MicroVoxel -> VTK Vec3
 renderMicroVertexVTK vbox mv = let
   ps = mapMaybe getPropValue (HM.elems $ microVertex mv)
   in renderVoxElemListVTK vbox ps
 
--- ==========================================================================================
-
-instance RenderCell (Vector Int) where
-  makeCell  = id
-  getType _ = VTK_POLYGON
-
-dbg a = trace ("@@@@@@@>> " ++ show a) a
-
-renderVTKBaseTripleLinesFaceID :: VoxBox a -> MicroVoxel -> FaceID -> VTK Vec3
-renderVTKBaseTripleLinesFaceID vbox mv face = let
-  m     = renderMicro mv
-  m'    = V.foldl' (V.++) V.empty m
-  m''   = V.foldl' (V.++) V.empty m'
-  
-  vbext = getExtendedVoxBox vbox
-  ps    = getVoxBoxCornersPoints vbext
-  renderSimpleEdge es = let
-    f (OpenSeq _ _ os) = V.map render $ V.fromList os
-    f (LoopSeq os)     = V.map render $ V.fromList os
-    render (a, b) = let foo =  renderVoxelPos vbext in (foo a ,foo b)
-    in V.concatMap f es
-       
-  rs'    = (renderSimpleEdge . V.fromList . dbg . classifySegs . V.toList)
-          <$> getFaceElements' mv face
-
-  rs = case rs' of
-    Just x -> x
-    _      -> V.empty
-
-  attr  = mkCellAttr "color" (\a _ _ -> a)
-  vtk   = mkUGVTK "MicroGraph" ps rs
-  in addDataCells vtk attr
-        
-renderVTKBaseTripleLines :: VoxBox a -> MicroVoxel -> VTK Vec3
-renderVTKBaseTripleLines vbox mv = let
-  m     = renderMicro mv
-  m'    = V.foldl' (V.++) V.empty m
-  m''   = V.foldl' (V.++) V.empty m'
-  
-  vbext = getExtendedVoxBox vbox
-  ps    = getVoxBoxCornersPoints vbext
-  rs    = V.map (V.map (renderVoxelPos vbext)) m'
-
-  attr  = mkCellAttr "color" (\a _ _ -> a)
-  vtk   = mkUGVTK "MicroGraph" ps rs
-  in addDataCells vtk attr
-
-renderVTKp :: VoxBox a -> MicroVoxel -> VTK Vec3
-renderVTKp vbox mv = let
-  m    = renderMicro' mv
-  m'   = V.foldl' (V.++) V.empty m
-  m''  = V.foldl' (V.++) V.empty m'
-
-  vbext = getExtendedVoxBox vbox
-  ps    = getVoxBoxCornersPoints vbext
-  rs    = V.map func m''
-
-  func (a,b) = let
-    f = renderVoxelPos vbext
-    in (f a, f b)
-
-  in mkUGVTK "MicroGraph" ps rs
-
--- ==========================================================================================
-
-renderMicro' :: MicroVoxel -> Vector (Vector (Vector (VoxelPos, VoxelPos)))
-renderMicro' mv = let
-  gids = getGrainIDList mv
-  gs   = mapMaybe (renderGrain' mv) gids
-  in V.fromList gs
-
-renderGrain' :: MicroVoxel -> GrainID -> Maybe (Vector (Vector (VoxelPos, VoxelPos)))
-renderGrain' mv gid = do
-  faces <- getGrainProp gid mv >>= getPropConn
-  let s = mapMaybe (getFaceElements' mv) $ HS.toList faces
-  return $ V.fromList s
-  
-getFaceElements' :: MicroVoxel -> FaceID -> Maybe (Vector (VoxelPos, VoxelPos))
-getFaceElements' mv fid = do
-  mf   <- getFaceProp fid mv >>= getPropConn
-  let s = mapMaybe (getEdgeElements mv) $ HS.toList mf
-  return (V.fromList s)
- 
+instance RenderCell (Int, Int, Int, Int) where
+  makeCell (a,b,c,d) = U.fromList [a,b,c,d]
+  getType _          = VTK_QUAD
 
 
-
-renderMicro :: MicroVoxel -> Vector (Vector (Vector VoxelPos))
-renderMicro mv = let
-  gids = getGrainIDList mv
-  gs   = mapMaybe (renderGrain mv) gids
-  in V.fromList gs
-
-renderGrain :: MicroVoxel -> GrainID -> Maybe (Vector (Vector VoxelPos))
-renderGrain mv gid = do
-  faces <- getGrainProp gid mv >>= getPropConn
-  let s = mapMaybe (getFaceElements mv) $ HS.toList faces
-  return $ V.fromList s
-
-getFaceElements :: MicroVoxel -> FaceID -> Maybe (Vector VoxelPos)
-getFaceElements mv fid = let
-  getClosedRing = closeSeq . mapMaybe (getEdgeElements mv) . HS.toList
-  getVertecies  = V.map fst . V.fromList
-  in do
-    mf   <- getFaceProp fid mv >>= getPropConn
-    ring <- getClosedRing mf
-    return $ getVertecies ring
-
-getEdgeElements :: MicroVoxel -> EdgeID -> Maybe (VoxelPos, VoxelPos)
-getEdgeElements mv eid = do
-  let table = microVertex mv
-  ep <- getEdgeProp eid mv
-  me <- getPropConn ep
-  case me of
-    FullEdge vid1 vid2 -> do
-      a <- getPropValue =<< HM.lookup vid1 table
-      b <- getPropValue =<< HM.lookup vid2 table
-      return (a, b)
-    _ -> Nothing
