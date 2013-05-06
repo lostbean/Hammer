@@ -1,14 +1,35 @@
+{-# LANGUAGE TypeSynonymInstances #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE RecordWildCards #-}
+
 module Hammer.Render.VTK.Types where
 
-import qualified Data.Text          as T
+import qualified Data.ByteString.Lazy.Builder as BB
+import qualified Data.Text.Lazy.Encoding      as TE
+import qualified Data.Vector                  as V
 
-import           Data.Text          (Text)
-import           Data.Vector        (Vector)
-import           Hammer.Math.Vector hiding (Vector)
+import           Data.Text                    (Text)
+import           Data.Vector.Unboxed          (Vector, Unbox)
+import           Data.Monoid                  ((<>))
+import           Data.Text.Lazy.Builder       (toLazyText)
+
+import           Data.Text.Lazy.Builder.RealFloat
+import           Data.Text.Lazy.Builder.Int
+
+import           Hammer.Math.Algebra
 
 
 class RenderPoint point where
-  renderPoint :: point -> Text
+  renderPoint       :: point -> BB.Builder
+  renderBinaryPoint :: point -> BB.Builder
+  
+class (RenderPoint a, Unbox a)=> RenderElemVTK a
+
+instance RenderElemVTK Int 
+instance RenderElemVTK Double 
+instance RenderElemVTK Vec3 
+instance RenderElemVTK Vec2 
+instance RenderElemVTK Mat3 
 
 class RenderCell shape where
   makeCell :: shape -> Vector Int
@@ -16,8 +37,6 @@ class RenderCell shape where
 
 -- | This class defines how to create and render attributes.
 class RenderAttr attr where
-  renderAttr  :: attr -> Text
-
   -- | This function creates an attribute of type 'attr' for each cell.
   -- It is itself a function that is given to render, where:
   -- 
@@ -50,7 +69,7 @@ newtype AttrCell  a attr = AttrCell  (Int -> Vector a -> CellType -> attr)
 type VTKAttrPoint a = VTKAttr (AttrPoint a)
 type VTKAttrCell  a = VTKAttr (AttrCell  a)
 
-data VTK a = VTK
+data (RenderElemVTK a)=> VTK a = VTK
   { name      :: Text
   , isBinary  :: Bool
   , dataSet   :: VTKDataSet a
@@ -58,12 +77,15 @@ data VTK a = VTK
   , cellData  :: [VTKAttrCell  a]
   }
 
+instance (Show a, RenderElemVTK a)=> Show (VTK a) where
+  show (VTK{..}) = concat [show name, " ", show isBinary, " ", show dataSet]
+
 data VTKAttr a  = IDData     String (a Int)
                 | ScalarData String (a Double)
                 | VectorData String (a Vec3)
                 | TensorData String (a Mat3)
 
-data (RenderPoint a) => VTKDataSet a =
+data VTKDataSet a =
     StructPoint
     { dimSP    :: (Int, Int, Int)
     , originSP :: (Double, Double, Double)
@@ -86,8 +108,8 @@ data (RenderPoint a) => VTKDataSet a =
     { setUG      :: Vector a
     , cellUG     :: Vector Int
     , cellOffUG  :: Vector Int
-    , cellTypeUG :: Vector CellType
-    }
+    , cellTypeUG :: V.Vector CellType
+    } deriving (Show)
 
 data CellType
   = VTK_VERTEX
@@ -137,28 +159,65 @@ evalCellType x = case x of
   VTK_QUADRATIC_TETRA      -> 24
   VTK_QUADRATIC_HEXAHEDRON -> 25
 
-toTxt::(Show a)=>a -> Text
-toTxt = T.pack.show
+instance RenderPoint Mat3 where
+  renderPoint (Mat3 x y z) =
+    renderPoint x <>
+    renderPoint y <>
+    renderPoint z
+
+  renderBinaryPoint (Mat3 x y z) =
+    renderBinaryPoint x <>
+    renderBinaryPoint y <>
+    renderBinaryPoint z
+
+
+instance RenderPoint Vec3 where
+  renderPoint (Vec3 x y z) =
+    renderPoint x <>
+    renderPoint y <>
+    renderPoint z 
+
+  renderBinaryPoint (Vec3 x y z) =
+    renderBinaryPoint x <>
+    renderBinaryPoint y <>
+    renderBinaryPoint z
+
+instance RenderPoint Vec2 where
+  renderPoint (Vec2 x y)       = renderPoint x <> renderPoint y
+  renderBinaryPoint (Vec2 x y) = renderBinaryPoint x <> renderBinaryPoint y
+
+instance RenderPoint Double where
+  renderPoint       = (<> BB.char8 ' ') . renderDouble
+  renderBinaryPoint = BB.doubleLE
+
+instance RenderPoint Int where
+  renderPoint       = (<> BB.char8 ' ') . renderInt
+  renderBinaryPoint = BB.int32LE . fromIntegral
+
+renderInt :: Int -> BB.Builder
+renderInt = BB.lazyByteString . TE.encodeUtf8 . toLazyText . decimal
+
+renderDouble :: Double -> BB.Builder
+renderDouble = renderF 4
+
+renderF :: (RealFloat a)=> Int -> a -> BB.Builder
+renderF n = BB.lazyByteString . TE.encodeUtf8 . toLazyText . formatRealFloat Fixed (Just n)
+
+
 
 
 instance RenderAttr Double where
-  renderAttr            = toTxt
   mkCellAttr  n func = ScalarData n (AttrCell  func)
   mkPointAttr n func = ScalarData n (AttrPoint func)
 
 instance RenderAttr Int where
-  renderAttr            = toTxt
   mkCellAttr  n func = IDData n (AttrCell  func)
   mkPointAttr n func = IDData n (AttrPoint func)
 
 instance RenderAttr Vec3 where
-  renderAttr (Vec3 x y z) = T.unwords [toTxt x, toTxt y, toTxt z]
   mkCellAttr  n func   = VectorData n (AttrCell  func)
   mkPointAttr n func   = VectorData n (AttrPoint func)
 
 instance RenderAttr Mat3 where
-  renderAttr (Mat3 a b c) = T.unwords [renderAttr a, renderAttr b, renderAttr c]
   mkCellAttr  n func   = TensorData n (AttrCell func)
   mkPointAttr n func   = TensorData n (AttrPoint func)
-
-
