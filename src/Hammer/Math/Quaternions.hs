@@ -14,7 +14,7 @@ module Hammer.Math.Quaternions where
 
 --------------------------------------------------------------------------------
 
-import Hammer.Math.Vector
+import Hammer.Math.Algebra
 import Foreign.Storable
 import System.Random
 
@@ -23,7 +23,7 @@ import System.Random
 
 -- | The type for quaternions. 
 newtype Quaternion = Q Vec4 
-  deriving (Read,Show,Storable,AbelianGroup,Vector,DotProd,Random)
+  deriving (Read,Show,Storable,AbelianGroup,MultiVec,DotProd,Random)
 
 -- | The type for unit quaternions. 
 newtype UnitQuaternion = U Vec4 
@@ -187,12 +187,12 @@ actU (U (Vec4 a b c d)) (Vec3 x y z) = Vec3 x' y' z' where
 -- > rotU axis1 angl1 *. rotU axis2 angl2 *. v  ==  (rotU axis1 angl1 .*. rotU axis2 angl2) *. v 
 --
 rotU :: Vec3 -> Double -> U
-rotU axis angle = rotU' (mkNormal axis) angle
+rotU axis omega = rotU' (mkNormal axis) omega
 
 rotU' {- ' CPP is sensitive to primes -} :: Normal3 -> Double -> U
-rotU' axis angle = U (Vec4 c (x*s) (y*s) (z*s)) where
+rotU' axis omega = U (Vec4 c (x*s) (y*s) (z*s)) where
   Vec3 x y z = fromNormal axis 
-  half = 0.5 * angle
+  half = 0.5 * omega
   c = cos half
   s = sin half
 

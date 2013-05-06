@@ -10,7 +10,7 @@ module Math.GramSchmidt
   )
   where
 
-import Hammer.Math.Vector
+import Hammer.Math.Algebra
 
 --------------------------------------------------------------------------------
 

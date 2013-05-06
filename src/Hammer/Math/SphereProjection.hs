@@ -1,6 +1,6 @@
 module Hammer.Math.SphereProjection where
 
-import Hammer.Math.Vector
+import Hammer.Math.Algebra
 
 
 -- | Define types of sphere to plane projections. 
@@ -24,9 +24,8 @@ getSO3ProjFunc projType = case projType of
   Lambert      InvProjSymm -> lambert . symmetrize . normalize
   Sterographic NoProjSymm  -> stero   . normalize
   Sterographic InvProjSymm -> stero   . symmetrize . normalize
-  _                        -> \x -> Nothing
   where
-    symmetrize v@(Vec3 x y z)
+    symmetrize v@(Vec3 _ _ z)
       | z > 0 = v
       | otherwise = neg v
     -- Here are implemented Cartesian -> Cartesian transformations.
