@@ -353,12 +353,14 @@ class (Hashable (SubLevel l), Eq (SubLevel l))=> GrainHierarchy l where
 --  -------------------------------- UpdateLevel Class --------------------------------------
 
 class UpdateLevel l where
-  updateLevelProp  :: a -> (a -> a -> a) -> Maybe (l a) -> Maybe (l a)
+  updateLevelProp :: a -> (a -> a -> a) -> Maybe (l a) -> Maybe (l a)
 
 --  -------------------------------- HasPropValue Class -------------------------------------
 
 class HasPropValue prop where
-  getPropValue       :: prop v -> Maybe v
+  hasPropValue :: prop v -> Bool
+  getPropValue :: prop v -> Maybe v
+  setPropValue :: prop v -> v1 -> prop v1
 
 --  -------------------------------- HasPropConn Class --------------------------------------
 

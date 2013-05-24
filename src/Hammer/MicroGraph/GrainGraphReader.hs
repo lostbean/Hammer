@@ -24,44 +24,73 @@ import           Hammer.MicroGraph.Types
 -- ------------------------------ HasPropValue Instancies -------------------------------
 
 instance HasPropValue VertexProp where
+  hasPropValue NullVertexProp = False
+  hasPropValue _              = True
+  
   getPropValue p = case p of
     VertexProp v -> return v
     _            -> Nothing
+  
+  setPropValue p v = case p of
+    VertexProp _ -> VertexProp v
+    _            -> VertexProp v
 
 instance HasPropValue EdgeProp where
+  hasPropValue (NullEdgeProp _) = False
+  hasPropValue _                = True
+
   getPropValue p = case p of
     EdgeProp _ v -> return v
     _            -> Nothing
+    
+  setPropValue p v = case p of
+    EdgeProp c _   -> EdgeProp c v
+    NullEdgeProp c -> EdgeProp c v
+
 
 instance HasPropValue FaceProp where
+  hasPropValue (NullFaceProp _) = False
+  hasPropValue _                = True
+  
   getPropValue p = case p of
     FaceProp _ v -> return v
     _            -> Nothing
+  
+  setPropValue p v = case p of
+    FaceProp c _   -> FaceProp c v
+    NullFaceProp c -> FaceProp c v
 
 instance HasPropValue GrainProp where
+  hasPropValue (NullGrainProp _) = False
+  hasPropValue _                 = True
+
   getPropValue p = case p of
     GrainProp _ v -> return v
     _             -> Nothing
-
--- ------------------------------ HasPropValue Instancies ------------------------
+  
+  setPropValue p v = case p of
+    GrainProp c _   -> GrainProp c v
+    NullGrainProp c -> GrainProp c v
+    
+-- ------------------------------ HasPropConn Instancies ------------------------
 
 instance HasPropConn EdgeProp where
   type PropConn EdgeProp = MicroEdge
   getPropConn p = case p of
-    EdgeProp m _ -> return m
-    _            -> Nothing
+    EdgeProp m _   -> return m
+    NullEdgeProp m -> return m
     
 instance HasPropConn FaceProp where
   type PropConn FaceProp = HashSet EdgeID
   getPropConn p = case p of
-    FaceProp c _ -> return c
-    _            -> Nothing
+    FaceProp c _   -> return c
+    NullFaceProp c -> return c
     
 instance HasPropConn GrainProp where
   type PropConn GrainProp = HashSet FaceID
   getPropConn p = case p of
-    GrainProp c _ -> return c
-    _             -> Nothing
+    GrainProp c _   -> return c
+    NullGrainProp c -> return c
 
 -- ------------------------------ Access functions -------------------------------
 
