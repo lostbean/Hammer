@@ -5,35 +5,42 @@
 {-# LANGUAGE FlexibleContexts     #-}
 {-# LANGUAGE UndecidableInstances #-}
 
+{- | Module to sort and classify sequence of segments e.g.
+
+> closeSeq [(1,2), (2,5), (10, 1), (10,5)] = [(1,2), (2,5), (5, 10), (10, 1)]
+
+-}
+
+
 module Hammer.Math.SortSeq
-  ( getListSegs
+  ( SeqSeg  (..)
+  , SeqInv  (..)
+  , SeqComp (..)
+  , Seq (..)
+    -- * Vector based
   , getVecSegs
   , getVecSegsIndirect
-    
+    -- * List based
+  , getListSegs
   , splitOpenLoop
   , getOneLoop
   , getLoops
-
-  , Seq (..)
-  , SeqSeg  (..)
-  , SeqInv  (..)
-  , SeqComp (..)
-
+    -- * Old implamentation
   , closeSeq
   ) where
 
-import           Control.Applicative     ((<$>))
-import           Control.Monad           (liftM, zipWithM_)
-import           Control.Monad.ST        (runST)
-import           Data.Maybe              (isJust)
-import           Data.Vector             (Vector)
+import           Control.Applicative ((<$>))
+import           Control.Monad       (liftM, zipWithM_)
+import           Control.Monad.ST    (runST)
+import           Data.Maybe          (isJust)
+import           Data.Vector         (Vector)
   
 import qualified Data.Vector         as V
 import qualified Data.Vector.Mutable as VM
 import qualified Data.List           as L
 
-import           Debug.Trace
-dbg a = trace (">> " ++ show a) a
+--import           Debug.Trace
+--dbg a = trace (">> " ++ show a) a
         
 -- ====================================== Data types ====================================
         
