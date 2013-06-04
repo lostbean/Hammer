@@ -1,15 +1,13 @@
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE MultiParamTypeClasses      #-}
+{-# LANGUAGE FunctionalDependencies     #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE TypeSynonymInstances #-}
+{-# LANGUAGE FlexibleInstances          #-}
+{-# LANGUAGE TypeSynonymInstances       #-}
 
 module Hammer.Math.Algebra
   ( AbelianGroup(..)
-  , vecSum
   , MultSemiGroup(..)
   , Ring
-  , semigroupProduct
   , LeftModule(..)
   , RightModule(..)
   , MultiVec (..)
@@ -29,20 +27,25 @@ module Hammer.Math.Algebra
   , Diagonal (..)
   , Determinant (..)
   , Orthogonal (..)
-  , Projective (..)
-  , MatrixNorms (..)
   , Vec2 (..), Vec3 (..), Vec4 (..)
   , Mat2 (..), Mat3 (..), Mat4 (..)
-  , Ortho2, Ortho3, Ortho4
   , Normal2, Normal3, Normal4
-  , Proj3, Proj4
   , mkVec2 , mkVec3 , mkVec4
   , project , project' , projectUnsafe , flipNormal
-  , householder, householderOrtho
+  , householder
+  , VecFunctor (..)
+  , PrettyShow (..)
+
+  , Hessenberg  (..)
+  , OrthoMatrix (..)
+  , qrGram
+  , qrHouse
+  , symmEigen
+
   )
   where
 
-import Hammer.Math.AlgebraMat
+import Hammer.Math.AlgebraMat ()
 import Hammer.Math.AlgebraBase
 import Hammer.Math.AlgebraVec
-
+import Hammer.Math.Unboxed

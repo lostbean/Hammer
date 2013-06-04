@@ -227,30 +227,6 @@ slerpU t (U p0') (U p1) = U v where
   y0 = sin (omega*(1-t)) / s 
   y1 = sin (omega*   t ) / s
   
--- | Makes a rotation matrix (to be multiplied with on the /right/) out of a unit quaternion:
---
--- > v .* rightOrthoU (rotU axis angl)  ==  v .* rotMatrix3 axis angl
--- 
--- Please note that while these matrices act on the /right/, quaternions act on the /left/; thus
--- 
--- > rightOrthoU q1 .*. rightOrthoU q2  ==  rightOrthoU (q2 .*. q1)
---
-rightOrthoU :: U -> Ortho3
-rightOrthoU = toOrthoUnsafe . transpose . fromOrtho . leftOrthoU
-
--- | Makes a rotation matrix (to be multiplied with on the /left/) out of a unit quaternion.
---
--- > leftOrthoU (rotU axis angl) *. v  ==  v .* rotMatrix3 axis angl
--- 
-leftOrthoU :: U -> Ortho3
-leftOrthoU (U (Vec4 a b c d)) = toOrthoUnsafe $ Mat3 row1 row2 row3 where
-  row1 = Vec3  (aa + bb - cc - dd)  (  2 * (bc - ad)  )  (  2 * (bd + ac)  )
-  row2 = Vec3  (  2 * (bc + ad)  )  (aa - bb + cc - dd)  (  2 * (cd - ab)  )
-  row3 = Vec3  (  2 * (bd - ac)  )  (  2 * (cd + ab)  )  (aa - bb - cc + dd)
-  --
-  aa = a*a ; bb = b*b ; cc = c*c ; dd = d*d
-  ab = a*b ; ac = a*c ; ad = a*d
-  bc = b*c ; bd = b*d ; cd = c*d
   
 --------------------------------------------------------------------------------
   

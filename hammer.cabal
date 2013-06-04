@@ -150,6 +150,7 @@ Library
                     Hammer.Math.AlgebraBase
                     Hammer.Math.AlgebraVec
                     Hammer.Math.AlgebraMat
+                    Hammer.Math.Unboxed
 
                     Hammer.Render.VTK.VTKXMLTemplate
                     Hammer.Render.VTK.Types

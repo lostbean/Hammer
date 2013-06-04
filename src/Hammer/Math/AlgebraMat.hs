@@ -1,25 +1,22 @@
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE MultiParamTypeClasses      #-}
+{-# LANGUAGE FunctionalDependencies     #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE TypeSynonymInstances #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# OPTIONS_GHC -fno-warn-orphans #-}
+{-# LANGUAGE FlexibleContexts           #-}
+{-# LANGUAGE FlexibleInstances          #-}
+{-# LANGUAGE TypeSynonymInstances       #-}
+{-# LANGUAGE TypeFamilies               #-}
+{-# OPTIONS_GHC -fno-warn-orphans       #-}
 
 module Hammer.Math.AlgebraMat where
 
-import qualified Data.Vector.Unboxed         as U
-import qualified Data.Vector.Generic.Base    as G
-import qualified Data.Vector.Generic.Mutable as M
+import           Data.List                   (intercalate)
+import           Data.List                   (foldl')
 
-import Data.Vector                     (Vector)
-import Control.Monad                   (liftM)
-
-import Foreign
-import System.Random  
+import           Foreign
+import           System.Random
   
-import Hammer.Math.AlgebraBase
-import Hammer.Math.AlgebraVec()
+import           Hammer.Math.AlgebraBase
+import           Hammer.Math.AlgebraVec()
 
 --------------------------------------------------------------------------------                    
 -- Mat2 instances
@@ -65,7 +62,8 @@ instance RightModule Vec2 Mat2 where
   rmul v mt = lmul (transpose mt) v
 
 instance Diagonal Vec2 Mat2 where
-  diag (Vec2 x y) = Mat2 (Vec2 x 0) (Vec2 0 y)
+  diagMtx (Vec2 x y) = Mat2 (Vec2 x 0) (Vec2 0 y)
+  diagVec m = Vec2 (_1 $ _1 m) (_2 $ _2 m)
 
 instance Tensor Mat2 Vec2 where
   outer (Vec2 a b) (Vec2 x y) = Mat2
@@ -74,11 +72,6 @@ instance Tensor Mat2 Vec2 where
 
 instance Determinant Mat2 where
   det (Mat2 (Vec2 a b) (Vec2 c d)) = a*d - b*c 
-
-{-
-instance Show Mat2 where
-  show (Mat2 r1 r2) = show r1 ++ "\n" ++ show r2
--}
 
 instance Storable Mat2 where
   sizeOf    _ = 2 * sizeOf (undefined::Vec2)
@@ -108,15 +101,22 @@ instance Random Mat2 where
           
 instance Dimension Mat2 where dim _ = 2
      
-instance MatrixNorms Mat2 where 
-  frobeniusNorm (Mat2 r1 r2) =  
-    sqrt $
-      normsqr r1 + 
-      normsqr r2
-     
 instance Pointwise Mat2 where
   pointwise (Mat2 x1 y1) (Mat2 x2 y2) = Mat2 (x1 &! x2) (y1 &! y2)
-       
+        
+instance VecFunctor Mat2 Vec2 where
+  vecMap     f (Mat2 a b) = Mat2 (f a) (f b)
+  vecFoldr   f (Mat2 a b) = f a b
+  vecZipWith f (Mat2 a1 b1) (Mat2 a2 b2) = Mat2 (f a1 a2) (f b1 b2)
+      
+instance MatFunctor Mat2 where
+  matMap     f (Mat2 a b) = Mat2 (vecMap f a) (vecMap f b)
+  matFoldr   f (Mat2 a b) = f (vecFoldr f a) (vecFoldr f b)
+  matZipWith f (Mat2 a1 b1) (Mat2 a2 b2) = Mat2 (vecZipWith f a1 a2) (vecZipWith f b1 b2)
+ 
+instance PrettyShow Mat2 where
+  showPretty (Mat2 a b) = intercalate "\n" ["", showPretty a, showPretty b]
+  
 --------------------------------------------------------------------------------   
 -- Mat3 instances
 
@@ -181,7 +181,36 @@ instance RightModule Vec3 Mat3 where
   rmul v mt = lmul (transpose mt) v
 
 instance Diagonal Vec3 Mat3 where
-  diag (Vec3 x y z) = Mat3 (Vec3 x 0 0) (Vec3 0 y 0) (Vec3 0 0 z)
+  diagMtx (Vec3 x y z) = Mat3 (Vec3 x 0 0) (Vec3 0 y 0) (Vec3 0 0 z)
+  diagVec m = Vec3 (_1 $ _1 m) (_2 $ _2 m) (_3 $ _3 m)
+  
+instance Hessenberg Mat3 where
+  hessen m = q .*. m .*. q
+    where q = getHH3 m
+          
+-- | Find the Householder transformation used for tridiagonalization of symmetric
+-- matrices and for transforming non-symmetric matrices to a Hessenberg form.
+getHH3 :: Mat3 -> Mat3
+getHH3 m = let
+  x = trimHead $ _1 $ transpose m
+  a = let k = norm x in if _1 x > 0 then -k else k
+  r = 0.5 * (a*a - (_1 x) * a)
+  v = Vec2 (a/(2*r)) 0
+  u = extendHeadZero $ v &- (1/(2*r)) *& x
+  in householder u
+
+instance OrthoMatrix Mat3 where
+  orthoColsHouse m = let
+    q1 = getQ m
+    m1 = (trimHead $ q1 .*. m) :: Mat2
+    q2 = extendHeadWith 1 $ getQ m1
+    in transpose q1 .*. transpose q2
+
+  orthoRowsGram (Mat3 a1 a2 a3) = let
+    e1 = normalize a1
+    e2 = normalize $ foldl' schimi a2 [e1]
+    e3 = normalize $ foldl' schimi a3 [e1, e2]
+    in Mat3 e1 e2 e3
 
 instance Tensor Mat3 Vec3 where
   outer (Vec3 a b c) (Vec3 x y z) = Mat3
@@ -191,11 +220,6 @@ instance Tensor Mat3 Vec3 where
 
 instance Determinant Mat3 where
   det (Mat3 r1 r2 r3) = det (r1,r2,r3)
-
-{-
-instance Show Mat3 where
-  show (Mat3 r1 r2 r3) = show r1 ++ "\n" ++ show r2 ++ "\n" ++ show r3
--}
 
 instance Storable Mat3 where
   sizeOf    _ = 3 * sizeOf (undefined::Vec3)
@@ -227,17 +251,24 @@ instance Random Mat3 where
     in (Mat3 x y z, gen3)
    
 instance Dimension Mat3 where dim _ = 3
-  
-instance MatrixNorms Mat3 where 
-  frobeniusNorm (Mat3 r1 r2 r3)  = 
-    sqrt $
-      normsqr r1 + 
-      normsqr r2 + 
-      normsqr r3 
 
 instance Pointwise Mat3 where
   pointwise (Mat3 x1 y1 z1) (Mat3 x2 y2 z2) = Mat3 (x1 &! x2) (y1 &! y2) (z1 &! z2)
     
+instance VecFunctor Mat3 Vec3 where
+  vecMap     f (Mat3 a b c) = Mat3 (f a) (f b) (f c)
+  vecFoldr   f (Mat3 a b c) = f a (f b c)
+  vecZipWith f (Mat3 a1 b1 c1) (Mat3 a2 b2 c2) = Mat3 (f a1 a2) (f b1 b2) (f c1 c2)
+
+instance MatFunctor Mat3 where
+  matMap     f (Mat3 a b c) = Mat3 (vecMap f a) (vecMap f b) (vecMap f c)
+  matFoldr   f (Mat3 a b c) = f (vecFoldr f a) (f (vecFoldr f b) (vecFoldr f c))
+  matZipWith f (Mat3 a1 b1 c1) (Mat3 a2 b2 c2) =
+    Mat3 (vecZipWith f a1 a2) (vecZipWith f b1 b2) (vecZipWith f c1 c2)
+
+instance PrettyShow Mat3 where
+  showPretty (Mat3 a b c) = intercalate "\n" ["", showPretty a, showPretty b, showPretty c]
+  
 --------------------------------------------------------------------------------
 -- Mat4 instances
 
@@ -284,7 +315,45 @@ instance RightModule Vec4 Mat4 where
   rmul v mt = lmul (transpose mt) v
 
 instance Diagonal Vec4 Mat4 where
-  diag (Vec4 x y z w) = Mat4 (Vec4 x 0 0 0) (Vec4 0 y 0 0) (Vec4 0 0 z 0) (Vec4 0 0 0 w)
+  diagMtx (Vec4 x y z w) = Mat4 (Vec4 x 0 0 0) (Vec4 0 y 0 0) (Vec4 0 0 z 0) (Vec4 0 0 0 w)
+  diagVec m = Vec4 (_1 $ _1 m) (_2 $ _2 m) (_3 $ _3 m) (_4 $ _4 m)
+ 
+instance Hessenberg Mat4 where
+  hessen m = let
+    q1  = getHH4 m
+    a1  = q1 .*. m .*. q1
+    a1s = trimHead a1
+    q2  = extendHeadWith 1 $ getHH3 a1s 
+    in q2 .*. a1 .*. q2
+
+getHH4 :: Mat4 -> Mat4
+getHH4 m = let
+  x = trimHead $ _1 $ transpose m
+  a = let k = norm x in if _1 x > 0 then -k else k
+  r = 0.5 * (a*a - (_1 x) * a)
+  v = Vec3 (a/(2*r)) 0 0
+  u = extendHeadZero $ v &- (1/(2*r)) *& x
+  in householder u
+
+instance OrthoMatrix Mat4 where
+  orthoColsHouse m = let
+    q1 = getQ m
+    m1 = (trimHead $ q1 .*. m)  :: Mat3
+  
+    q2 = getQ m1
+    m2 = (trimHead $ q2 .*. m1) :: Mat2
+    q3 = getQ m2
+
+    q2e = extendHeadWith 1 q2
+    q3e = extendHeadWith 1 q3
+    in transpose q1 .*. transpose q2e .*. transpose q3e
+
+  orthoRowsGram (Mat4 a1 a2 a3 a4) = let
+    e1 = normalize a1
+    e2 = normalize $ foldl' schimi a2 [e1]
+    e3 = normalize $ foldl' schimi a3 [e1, e2]
+    e4 = normalize $ foldl' schimi a4 [e1, e2, e3]
+    in Mat4 e1 e2 e3 e4
 
 instance Tensor Mat4 Vec4 where
   outer (Vec4 a b c d) (Vec4 x y z w) = Mat4
@@ -296,11 +365,6 @@ instance Tensor Mat4 Vec4 where
 instance Determinant Mat4 where
   det = error "det/Mat4: not implemented yet" 
   -- det (Mat4 r1 r2 r3 r4) = 
-
-{-
-instance Show Mat4 where
-  show (Mat4 r1 r2 r3 r4) = show r1 ++ "\n" ++ show r2 ++ "\n" ++ show r3 ++ "\n" ++ show r4
--}
 
 instance Storable Mat4 where
   sizeOf    _ = 4 * sizeOf (undefined::Vec4)
@@ -335,161 +399,23 @@ instance Random Mat4 where
     in (Mat4 x y z w, gen4)
     
 instance Dimension Mat4 where dim _ = 4
-   
-instance MatrixNorms Mat4 where 
-  frobeniusNorm (Mat4 r1 r2 r3 r4) = 
-    sqrt $
-      normsqr r1 + 
-      normsqr r2 + 
-      normsqr r3 + 
-      normsqr r4  
     
 instance Pointwise Mat4 where
   pointwise (Mat4 x1 y1 z1 w1) (Mat4 x2 y2 z2 w2) = Mat4 (x1 &! x2) (y1 &! y2) (z1 &! z2) (w1 &! w2)
     
---------------------------------------------------------------------------------
--- Orthogonal matrices
+instance VecFunctor Mat4 Vec4 where
+  vecMap     f (Mat4 a b c d) = Mat4 (f a) (f b) (f c) (f d)
+  vecFoldr   f (Mat4 a b c d) = f a (f b (f c d))
+  vecZipWith f (Mat4 a1 b1 c1 d1) (Mat4 a2 b2 c2 d2) = Mat4 (f a1 a2) (f b1 b2) (f c1 c2) (f d1 d2)
 
-instance Orthogonal Mat2 Ortho2 where
-  fromOrtho (Ortho2 o) = o
-  toOrthoUnsafe = Ortho2
-
-instance Orthogonal Mat3 Ortho3 where
-  fromOrtho (Ortho3 o) = o
-  toOrthoUnsafe = Ortho3 
-
-instance Orthogonal Mat4 Ortho4 where
-  fromOrtho (Ortho4 o) = o
-  toOrthoUnsafe = Ortho4
-
-------
-
-instance Matrix Ortho2 where
-  transpose (Ortho2 o) = Ortho2 (transpose o)
-  idmtx = Ortho2 idmtx
-  inverse = transpose
-
-instance Matrix Ortho3 where
-  transpose (Ortho3 o) = Ortho3 (transpose o)
-  idmtx = Ortho3 idmtx
-  inverse = transpose
-
-instance Matrix Ortho4 where
-  transpose (Ortho4 o) = Ortho4 (transpose o)
-  idmtx = Ortho4 idmtx
-  inverse = transpose
-
-------
-
-instance Random Ortho2 where
-  random g = let (o,h) = _rndOrtho2 g in (toOrthoUnsafe (_flip1stRow2 o), h)
-  randomR _ = random
-
-instance Random Ortho3 where
-  random g = let (o,h) = _rndOrtho3 g in (toOrthoUnsafe (             o), h)
-  randomR _ = random
-
-instance Random Ortho4 where
-  random g = let (o,h) = _rndOrtho4 g in (toOrthoUnsafe (_flip1stRow4 o), h)
-  randomR _ = random
-
-------
-
--- determinant will be -1
-_rndOrtho2 :: RandomGen g => g -> (Mat2, g)
-_rndOrtho2 g = (h2, g1) where
-  h2 = householder u2 :: Mat2 
-  (u2,g1) = random g   
-
--- generates a uniformly random orthogonal 3x3 matrix 
--- /with determinant +1/, with respect to the Haar measure of SO3.
---
--- see Theorem 4 in:
--- Francesco Mezzadri: How to Generate Random Matrices from the Classical Compact Groups 
--- Notices of the AMS, May 2007 issue
--- <http://www.ams.org/notices/200705/fea-mezzadri-web.ps>
-_rndOrtho3 :: RandomGen g => g -> (Mat3, g) 
-_rndOrtho3 g = ( (h3 .*. m3), g2) where
-  m3 = (extendTailWith :: Double -> Mat2 -> Mat3) 1 o2 
-  h3 = householder u3 :: Mat3
-  (u3,g1) = random g
-  (o2,g2) = _rndOrtho2 g1
-
--- determinant will be -1
-_rndOrtho4 :: RandomGen g => g -> (Mat4, g) 
-_rndOrtho4 g = ( (h4 .*. m4), g2) where
-  m4 = (extendTailWith :: Double -> Mat3 -> Mat4) 1 o3 
-  h4 = householder u4 :: Mat4
-  (u4,g1) = random g
-  (o3,g2) = _rndOrtho3 g1
-
-------
-
-_flip1stRow2 :: Mat2 -> Mat2
-_flip1stRow2 (Mat2 a b) = Mat2 (neg a) b
-
-_flip1stRow3 :: Mat3 -> Mat3
-_flip1stRow3 (Mat3 a b c) = Mat3 (neg a) b c
-
-_flip1stRow4 :: Mat4 -> Mat4
-_flip1stRow4 (Mat4 a b c d) = Mat4 (neg a) b c d
-
---------------------------------------------------------------------------------
--- projective matrices
-  
-instance Projective Vec2 Mat2 Ortho2 Mat3 Proj3 where
-  fromProjective (Proj3 m) = m
-  toProjectiveUnsafe = Proj3
-  orthogonal = Proj3 . extendTailWith 1 . fromOrtho
-  linear     = Proj3 . extendTailWith 1
-  translation v = Proj3 $ Mat3 (Vec3 1 0 0) (Vec3 0 1 0) (extendTailWith 1 v)
-  scaling     v = Proj3 $ diag (extendTailWith 1 v)
-  
-instance Projective Vec3 Mat3 Ortho3 Mat4 Proj4 where
-  fromProjective (Proj4 m) = m
-  toProjectiveUnsafe = Proj4
-  orthogonal = Proj4 . extendTailWith 1 . fromOrtho 
-  linear     = Proj4 . extendTailWith 1
-  translation v = Proj4 $ Mat4 (Vec4 1 0 0 0) (Vec4 0 1 0 0) (Vec4 0 0 1 0) (extendTailWith 1 v)
-  scaling     v = Proj4 $ diag (extendTailWith 1 v)
-
-instance Matrix Proj3 where
-  idmtx = Proj3 idmtx
-  transpose (Proj3 m) = Proj3 (transpose m)
-  inverse = _invertProj3
-
-instance Matrix Proj4 where
-  idmtx = Proj4 idmtx
-  transpose (Proj4 m) = Proj4 (transpose m)
-  inverse = _invertProj4
-
-_invertProj3 :: Proj3 -> Proj3
-_invertProj3 (Proj3 mat@(Mat3 _ _ t)) = 
-  Proj3 $ Mat3 (extendTailZero a) (extendTailZero b) (extendTailWith 1 t') 
-  where
-    t' = neg $ (trimTail t :: Vec2) .* invm2 
-    invm2@(Mat2 a b) = inverse $ (trimTail mat :: Mat2)
-
--- Inverts a projective 4x4 matrix. But you can simply use "inverse" instead.
--- We assume that the bottom-right corner is 1.
-_invertProj4 :: Proj4 -> Proj4
-_invertProj4 (Proj4 mat@(Mat4 _ _ _ t)) = 
-  Proj4 $ Mat4 (extendTailZero a) (extendTailZero b) (extendTailZero c) (extendTailWith 1 t') 
-  where
-    t' = neg $ (trimTail t :: Vec3) .* invm3 
-    invm3@(Mat3 a b c) = inverse $ (trimTail mat :: Mat3)
-
--- | Orthogonal matrices.
---
--- Note: the "Random" instances generates orthogonal matrices with determinant 1
--- (that is, orientation-preserving orthogonal transformations)!
-newtype Ortho2 = Ortho2 Mat2 deriving (Read,Show,Storable,MultSemiGroup,Determinant,Dimension)
-newtype Ortho3 = Ortho3 Mat3 deriving (Read,Show,Storable,MultSemiGroup,Determinant,Dimension)
-newtype Ortho4 = Ortho4 Mat4 deriving (Read,Show,Storable,MultSemiGroup,Determinant,Dimension)
-
--- | Projective matrices, encoding affine transformations in dimension one less.
-newtype Proj3 = Proj3 Mat3 deriving (Read,Show,Storable,MultSemiGroup)
-newtype Proj4 = Proj4 Mat4 deriving (Read,Show,Storable,MultSemiGroup)
+instance MatFunctor Mat4 where
+  matMap     f (Mat4 a b c d) = Mat4 (vecMap f a) (vecMap f b) (vecMap f c) (vecMap f d)
+  matFoldr   f (Mat4 a b c d) = f (vecFoldr f a) (f (vecFoldr f b) (f (vecFoldr f c) (vecFoldr f d)))
+  matZipWith f (Mat4 a1 b1 c1 d1) (Mat4 a2 b2 c2 d2) =
+    Mat4 (vecZipWith f a1 a2) (vecZipWith f b1 b2) (vecZipWith f c1 c2) (vecZipWith f d1 d2)
+ 
+instance PrettyShow Mat4 where
+  showPretty (Mat4 a b c d) = intercalate "\n" ["", showPretty a, showPretty b, showPretty c, showPretty d]
 
 --------------------------------------------------------------------------------
 -- Extend instances
@@ -518,151 +444,30 @@ instance Extend Mat3 Mat4 where
   extendTailWith w (Mat3 p q r) = Mat4 (extendTailZero p) (extendTailZero q) (extendTailZero r) (Vec4 0 0 0 w)
   trimTail (Mat4 p q r _) = Mat3 (trimTail p) (trimTail q) (trimTail r)
 
+-- ================================== Test ==================================
 
+testData1 :: Mat3 -- Source <http://en.wikipedia.org/wiki/QR_decomposition>
+testData1 = Mat3 (Vec3 12 (-51) 4) (Vec3 6 167 (-68)) (Vec3 (-4) 24 (-41))
+            
+testData2 :: Mat3 -- Source <Orthogonal Bases and the QR Algorithm> <by Peter J. Olver>
+testData2 = Mat3 (Vec3 2 1 0) (Vec3 1 3 (-1)) (Vec3 0 (-1) 6)
 
--- -------------------------------------------- Unbox Mat2 ----------------------------------------------------
+testData3 :: Mat4
+testData3 = Mat4 (Vec4 0 10 3 9) (Vec4 10 12 6 15) (Vec4 3 6 0 7) (Vec4 9 15 7 8)
+            
+testData4 :: Mat4 -- Source <Orthogonal Bases and the QR Algorithm> <by Peter J. Olver>
+testData4 = Mat4 (Vec4 4 1 (-1) 2) (Vec4 1 4 1 (-1)) (Vec4 (-1) 1 4 1) (Vec4 2 (-1) 1 4)
 
-newtype instance U.MVector s Mat2 = MV_Mat2 (U.MVector s (Vec2, Vec2))
-newtype instance U.Vector    Mat2 = V_Mat2  (U.Vector    (Vec2, Vec2))
+testQR :: (MultSemiGroup g, AbelianGroup g, OrthoMatrix g, Matrix g) => g -> g        
+testQR m = m &- (q .*. r)
+  where (q, r) = qrHouse m
 
-instance U.Unbox Mat2
-
-instance M.MVector U.MVector Mat2 where
-  {-# INLINE basicLength #-}
-  {-# INLINE basicUnsafeSlice #-}
-  {-# INLINE basicOverlaps #-}
-  {-# INLINE basicUnsafeNew #-}
-  {-# INLINE basicUnsafeReplicate #-}
-  {-# INLINE basicUnsafeRead #-}
-  {-# INLINE basicUnsafeWrite #-}
-  {-# INLINE basicClear #-}
-  {-# INLINE basicSet #-}
-  {-# INLINE basicUnsafeCopy #-}
-  {-# INLINE basicUnsafeGrow #-}
-  basicLength (MV_Mat2 v)                     = M.basicLength v
-  basicUnsafeSlice i n (MV_Mat2 v)            = MV_Mat2 $ M.basicUnsafeSlice i n v
-  basicOverlaps (MV_Mat2 v1) (MV_Mat2 v2)     = M.basicOverlaps v1 v2
-  basicUnsafeNew n                            = MV_Mat2 `liftM` M.basicUnsafeNew n
-  basicUnsafeReplicate n (Mat2 x y)           = MV_Mat2 `liftM` M.basicUnsafeReplicate n (x, y)
-  basicUnsafeRead (MV_Mat2 v) i               = M.basicUnsafeRead v i >>= (\(x, y) -> return $ Mat2 x y)
-  basicUnsafeWrite (MV_Mat2 v) i (Mat2 x y)   = M.basicUnsafeWrite v i (x, y)
-  basicClear (MV_Mat2 v)                      = M.basicClear v
-  basicSet (MV_Mat2 v) (Mat2 x y)             = M.basicSet v (x, y)
-  basicUnsafeCopy (MV_Mat2 v1) (MV_Mat2 v2)   = M.basicUnsafeCopy v1 v2
-  basicUnsafeGrow (MV_Mat2 v) n               = MV_Mat2 `liftM` M.basicUnsafeGrow v n
-
-instance G.Vector U.Vector Mat2 where
-  {-# INLINE basicUnsafeFreeze #-}
-  {-# INLINE basicUnsafeThaw #-}
-  {-# INLINE basicLength #-}
-  {-# INLINE basicUnsafeSlice #-}
-  {-# INLINE basicUnsafeIndexM #-}
-  {-# INLINE elemseq #-}
-  basicUnsafeFreeze (MV_Mat2 v)           = V_Mat2 `liftM` G.basicUnsafeFreeze v
-  basicUnsafeThaw (V_Mat2 v)              = MV_Mat2 `liftM` G.basicUnsafeThaw v
-  basicLength (V_Mat2 v)                  = G.basicLength v
-  basicUnsafeSlice i n (V_Mat2 v)         = V_Mat2 $ G.basicUnsafeSlice i n v
-  basicUnsafeIndexM (V_Mat2 v) i          = G.basicUnsafeIndexM v i >>= (\(x, y) -> return $ Mat2 x y)
-  basicUnsafeCopy (MV_Mat2 mv) (V_Mat2 v) = G.basicUnsafeCopy mv v
-  elemseq _ (Mat2 x y) t                  = G.elemseq (undefined :: Vector a) x $
-                                            G.elemseq (undefined :: Vector a) y t
-
-
--- -------------------------------------------- Unbox Mat3 ----------------------------------------------------
-
-newtype instance U.MVector s Mat3 = MV_Mat3 (U.MVector s (Vec3, Vec3, Vec3))
-newtype instance U.Vector    Mat3 = V_Mat3  (U.Vector    (Vec3, Vec3, Vec3))
-
-instance U.Unbox Mat3
-
-instance M.MVector U.MVector Mat3 where
-  {-# INLINE basicLength #-}
-  {-# INLINE basicUnsafeSlice #-}
-  {-# INLINE basicOverlaps #-}
-  {-# INLINE basicUnsafeNew #-}
-  {-# INLINE basicUnsafeReplicate #-}
-  {-# INLINE basicUnsafeRead #-}
-  {-# INLINE basicUnsafeWrite #-}
-  {-# INLINE basicClear #-}
-  {-# INLINE basicSet #-}
-  {-# INLINE basicUnsafeCopy #-}
-  {-# INLINE basicUnsafeGrow #-}
-  basicLength (MV_Mat3 v)                     = M.basicLength v
-  basicUnsafeSlice i n (MV_Mat3 v)            = MV_Mat3 $ M.basicUnsafeSlice i n v
-  basicOverlaps (MV_Mat3 v1) (MV_Mat3 v2)     = M.basicOverlaps v1 v2
-  basicUnsafeNew n                            = MV_Mat3 `liftM` M.basicUnsafeNew n
-  basicUnsafeReplicate n (Mat3 x y z)         = MV_Mat3 `liftM` M.basicUnsafeReplicate n (x, y, z)
-  basicUnsafeRead (MV_Mat3 v) i               = M.basicUnsafeRead v i >>= (\(x,y,z) -> return $ Mat3 x y z)
-  basicUnsafeWrite (MV_Mat3 v) i (Mat3 x y z) = M.basicUnsafeWrite v i (x, y, z)
-  basicClear (MV_Mat3 v)                      = M.basicClear v
-  basicSet (MV_Mat3 v) (Mat3 x y z)           = M.basicSet v (x, y, z)
-  basicUnsafeCopy (MV_Mat3 v1) (MV_Mat3 v2)   = M.basicUnsafeCopy v1 v2
-  basicUnsafeGrow (MV_Mat3 v) n               = MV_Mat3 `liftM` M.basicUnsafeGrow v n
-
-instance G.Vector U.Vector Mat3 where
-  {-# INLINE basicUnsafeFreeze #-}
-  {-# INLINE basicUnsafeThaw #-}
-  {-# INLINE basicLength #-}
-  {-# INLINE basicUnsafeSlice #-}
-  {-# INLINE basicUnsafeIndexM #-}
-  {-# INLINE elemseq #-}
-  basicUnsafeFreeze (MV_Mat3 v)           = V_Mat3 `liftM` G.basicUnsafeFreeze v
-  basicUnsafeThaw (V_Mat3 v)              = MV_Mat3 `liftM` G.basicUnsafeThaw v
-  basicLength (V_Mat3 v)                  = G.basicLength v
-  basicUnsafeSlice i n (V_Mat3 v)         = V_Mat3 $ G.basicUnsafeSlice i n v
-  basicUnsafeIndexM (V_Mat3 v) i          = G.basicUnsafeIndexM v i >>= (\(x,y,z) -> return $ Mat3 x y z)
-  basicUnsafeCopy (MV_Mat3 mv) (V_Mat3 v) = G.basicUnsafeCopy mv v
-  elemseq _ (Mat3 x y z) t                = G.elemseq (undefined :: Vector a) x $
-                                            G.elemseq (undefined :: Vector a) y $
-                                            G.elemseq (undefined :: Vector a) z t
-
-
--- -------------------------------------------- Unbox Mat4 ----------------------------------------------------
-
-newtype instance U.MVector s Mat4 = MV_Mat4 (U.MVector s (Vec4, Vec4, Vec4, Vec4))
-newtype instance U.Vector    Mat4 = V_Mat4  (U.Vector    (Vec4, Vec4, Vec4, Vec4))
-
-instance U.Unbox Mat4
-
-instance M.MVector U.MVector Mat4 where
-  {-# INLINE basicLength #-}
-  {-# INLINE basicUnsafeSlice #-}
-  {-# INLINE basicOverlaps #-}
-  {-# INLINE basicUnsafeNew #-}
-  {-# INLINE basicUnsafeReplicate #-}
-  {-# INLINE basicUnsafeRead #-}
-  {-# INLINE basicUnsafeWrite #-}
-  {-# INLINE basicClear #-}
-  {-# INLINE basicSet #-}
-  {-# INLINE basicUnsafeCopy #-}
-  {-# INLINE basicUnsafeGrow #-}
-  basicLength (MV_Mat4 v)                       = M.basicLength v
-  basicUnsafeSlice i n (MV_Mat4 v)              = MV_Mat4 $ M.basicUnsafeSlice i n v
-  basicOverlaps (MV_Mat4 v1) (MV_Mat4 v2)       = M.basicOverlaps v1 v2
-  basicUnsafeNew n                              = MV_Mat4 `liftM` M.basicUnsafeNew n
-  basicUnsafeReplicate n (Mat4 x y z w)         = MV_Mat4 `liftM` M.basicUnsafeReplicate n (x, y, z, w)
-  basicUnsafeRead (MV_Mat4 v) i                 = M.basicUnsafeRead v i >>= (\(x, y, z, w) -> return $ Mat4 x y z w)
-  basicUnsafeWrite (MV_Mat4 v) i (Mat4 x y z w) = M.basicUnsafeWrite v i (x, y, z, w)
-  basicClear (MV_Mat4 v)                        = M.basicClear v
-  basicSet (MV_Mat4 v) (Mat4 x y z w)           = M.basicSet v (x, y, z, w)
-  basicUnsafeCopy (MV_Mat4 v1) (MV_Mat4 v2)     = M.basicUnsafeCopy v1 v2
-  basicUnsafeGrow (MV_Mat4 v) n                 = MV_Mat4 `liftM` M.basicUnsafeGrow v n
-
-instance G.Vector U.Vector Mat4 where
-  {-# INLINE basicUnsafeFreeze #-}
-  {-# INLINE basicUnsafeThaw #-}
-  {-# INLINE basicLength #-}
-  {-# INLINE basicUnsafeSlice #-}
-  {-# INLINE basicUnsafeIndexM #-}
-  {-# INLINE elemseq #-}
-  basicUnsafeFreeze (MV_Mat4 v)           = V_Mat4 `liftM` G.basicUnsafeFreeze v
-  basicUnsafeThaw (V_Mat4 v)              = MV_Mat4 `liftM` G.basicUnsafeThaw v
-  basicLength (V_Mat4 v)                  = G.basicLength v
-  basicUnsafeSlice i n (V_Mat4 v)         = V_Mat4 $ G.basicUnsafeSlice i n v
-  basicUnsafeIndexM (V_Mat4 v) i          = G.basicUnsafeIndexM v i >>= (\(x, y, z, w) -> return $ Mat4 x y z w)
-  basicUnsafeCopy (MV_Mat4 mv) (V_Mat4 v) = G.basicUnsafeCopy mv v
-  elemseq _ (Mat4 x y z w) t              = G.elemseq (undefined :: Vector a) x $
-                                            G.elemseq (undefined :: Vector a) y $
-                                            G.elemseq (undefined :: Vector a) z $
-                                            G.elemseq (undefined :: Vector a) w t
-
+testEigen :: ( VecFunctor t Double, OrthoMatrix a, MultiVec a, MultSemiGroup a
+             , Matrix a, MatFunctor a, LeftModule a b, HasCoordinates t Double
+             , HasCoordinates a b, DotProd b, Dimension a, Diagonal t a) =>
+             a -> [Double]
+testEigen m = map (normsqr . foo) $ take n [(_1, _1), (_2, _2), (_3, _3), (_4, _4)]
+  where
+    n = dim m
+    foo (f1, f2) = (m &- (f1 value) *& idmtx) *. (f2 $ transpose vec)
+    (vec, value) = symmEigen m
