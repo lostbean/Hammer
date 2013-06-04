@@ -115,6 +115,7 @@ Library
                 , vector               == 0.10.*
                 , vector-algorithms    >= 0.5
                 , primitive            >= 0.5
+                , gamma                >= 0.9
                 , hmatrix              == 0.14.*
                 , random               == 1.0.*
                 , parallel             >= 3.0
@@ -143,6 +144,7 @@ Library
 
                     --Hammer.Texture.Symmetry
                     Hammer.Texture.Orientation
+                    Hammer.Texture.Bingham
                     Hammer.Reader.ANGReader
                     Hammer.Writer.ANGWriter
 
@@ -162,6 +164,8 @@ Library
                     Hammer.VoxBox.VoxConnTypes
                     Hammer.VoxBox.Types
 
+                    Hammer.Texture.BinghamNormalization
+                    
   exposed:        True
   buildable:      True
   hs-source-dirs: src
