@@ -142,7 +142,7 @@ Library
                     Hammer.Texture.Harmonics.BaseFunctions
 
                     --Hammer.Texture.Symmetry
-                    --Hammer.Texture.Orientation
+                    Hammer.Texture.Orientation
                     Hammer.Reader.ANGReader
                     Hammer.Writer.ANGWriter
 
