@@ -127,7 +127,6 @@ Library
                 
   exposed-modules:  Hammer.Math.Algebra
                     Hammer.Math.SphereProjection
-                    Hammer.Math.Quaternions
                     Hammer.Math.SortSeq
                     Hammer.Math.SparseMatrix
 
