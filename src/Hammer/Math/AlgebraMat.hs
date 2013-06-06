@@ -65,6 +65,14 @@ instance Diagonal Vec2 Mat2 where
   diagMtx (Vec2 x y) = Mat2 (Vec2 x 0) (Vec2 0 y)
   diagVec m = Vec2 (_1 $ _1 m) (_2 $ _2 m)
 
+instance OrthoMatrix Mat2 where
+  orthoColsHouse = transpose . getQ
+
+  orthoRowsGram (Mat2 a1 a2) = let
+    e1 = normalize a1
+    e2 = normalize $ foldl' schimi a2 [e1]
+    in Mat2 e1 e2
+
 instance Tensor Mat2 Vec2 where
   outer (Vec2 a b) (Vec2 x y) = Mat2
     (Vec2 (a*x) (a*y))
@@ -457,6 +465,9 @@ testData3 = Mat4 (Vec4 0 10 3 9) (Vec4 10 12 6 15) (Vec4 3 6 0 7) (Vec4 9 15 7 8
             
 testData4 :: Mat4 -- Source <Orthogonal Bases and the QR Algorithm> <by Peter J. Olver>
 testData4 = Mat4 (Vec4 4 1 (-1) 2) (Vec4 1 4 1 (-1)) (Vec4 (-1) 1 4 1) (Vec4 2 (-1) 1 4)
+
+testData5 :: Mat2 -- Source <Orthogonal Bases and the QR Algorithm> <by Peter J. Olver>
+testData5 = Mat2 (Vec2 2 1) (Vec2 1 3)
 
 testQR :: (MultSemiGroup g, AbelianGroup g, OrthoMatrix g, Matrix g) => g -> g        
 testQR m = m &- (q .*. r)
