@@ -116,7 +116,6 @@ Library
                 , vector-algorithms    >= 0.5
                 , primitive            >= 0.5
                 , gamma                >= 0.9
-                , hmatrix              == 0.14.*
                 , random               == 1.0.*
                 , parallel             >= 3.0
                 , deepseq              >= 1.2
@@ -138,8 +137,6 @@ Library
                     Hammer.VoxBox.Base
                     Hammer.VoxBox.VoxConnFinder
                     Hammer.VoxBox.MicroVoxel
-
-                    Hammer.Texture.Harmonics.BaseFunctions
 
                     --Hammer.Texture.Symmetry
                     Hammer.Texture.Orientation
