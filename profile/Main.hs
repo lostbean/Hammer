@@ -21,6 +21,7 @@ import           Hammer.VoxBox.VoxConnFinder
 import           Hammer.VoxBox.MicroVoxel
 
 import           TestGrainFinder
+import           TestTexture
 
 data Tester =
   Tester
@@ -68,19 +69,20 @@ run Tester{..} = do
   if run_test_suit
     then do
     runChecker
+    runTextureChecker
     else putStrLn "Skiping test suit."
 
   case run_profile_GrainFinder of
     Just x -> profile_GrainFinder x
-    _      -> print "Skiping GrainFinder profile." 
+    _      -> putStrLn "Skiping GrainFinder profile." 
 
   case run_test_GrainFinder of
     Just x -> test_GrainFinder x
-    _      -> print "Skiping GrainFinder test." 
+    _      -> putStrLn "Skiping GrainFinder test." 
 
   case run_profile_VTKRender of
     Just x -> profile_VTKRender x
-    _      -> print "Skiping VTKRender profile."
+    _      -> putStrLn "Skiping VTKRender profile."
    
 profile_VTKRender fout = let
   vbox = VoxBox { dimension = mkStdVoxBoxRange (VoxBoxDim 100  100  100)
@@ -108,7 +110,7 @@ profile_GrainFinder fout = let
         vtk   = renderVoxBoxVTK vbox attrs
         attrs = [mkCellAttr "GrainID" (\a _ _ -> vec V.! a)]
       writeUniVTKfile (fout ++ ".vtr") vtk
-    _ -> print "Unable to find grains."
+    _ -> putStrLn "Unable to find grains."
  
 test_GrainFinder fout = case getMicroVoxel vboxTest of
   Nothing -> putStrLn "Sorry, I can't get the MicroVoxel"
