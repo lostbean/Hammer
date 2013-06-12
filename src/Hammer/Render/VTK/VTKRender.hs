@@ -13,9 +13,7 @@
 -- 
 -- TODO
 -- 
---  * Implement render functions for rectilinear grid, structured grid and structured points.
--- 
---  * Implement binary data format.
+--  * Implement render functions for rectilinear grid and structured grid.
 -- 
 module Hammer.Render.VTK.VTKRender
   ( VTK (..)
@@ -26,6 +24,7 @@ module Hammer.Render.VTK.VTKRender
   , mkUGVTK
   , mkRLGVTK
   , mkSGVTK
+  , mkSPVTK
   , evalCellType
   , CellType (..)
   , RenderAttr (mkCellAttr, mkPointAttr)
@@ -86,12 +85,28 @@ mkRLGVTK name px py pz = let
 mkSGVTK :: (RenderElemVTK a)=> String -> Int -> Int -> Int -> Vector a -> VTK a
 mkSGVTK name nx ny nz points = let
   nameTxt = pack name
-  dataset = mkStructGrid nx ny nz points
+  dataset = StructGrid { dimSG = (nx, ny, nz), setSG = points }
+  in mkVTK nameTxt False dataset [] []
+
+-- | Creates an Structured Points dataset (ImageData). Use:
+-- 
+-- > mkSGVTK "piece_name" (2, 1, 1) (0.0, 0.0, 0.0) (5.0, 5.0, 5.0) (Vec.fromList [Vec3 0 0 0, Vec3 0 1 0]) 
+-- 
+mkSPVTK :: String -> (Int, Int, Int) -> (Double, Double, Double)
+        -> (Double, Double, Double) -> VTK Double
+mkSPVTK name (dx, dy, dz) orig spc = let
+  nameTxt = pack name
+  size    = dx * dy * dz
+  ps      = U.replicate size 0 -- Fake data is needed for the func renderPointData gen. data points!!! 
+  dataset = StructPoint { dimSP    = (dx-1, dy-1, dz-1)
+                        , originSP = orig
+                        , spaceSP  = spc
+                        , setSP    = ps } 
   in mkVTK nameTxt False dataset [] []
 
 -- | Adds data to all points in 'VTK'. Internally, it pass the data as a function 'VTKAttPoint'.
 -- 
--- > let attr = mkCellAttr "grainID" (\i x -> grainIDTable!i)
+-- > let attr = mkPointsAttr "grainID" (\i x -> grainIDTable!i)
 -- > addDataPoints vtk 
 -- 
 addDataPoints :: (RenderElemVTK a)=> VTK a -> VTKAttrPoint a -> VTK a
@@ -140,11 +155,7 @@ mkRectLinGrid x y z = let
                                   , setxRG = x
                                   , setyRG = y
                                   , setzRG = z }
-
-mkStructGrid :: (RenderElemVTK a)=>  Int -> Int -> Int -> Vector a -> VTKDataSet a
-mkStructGrid nx ny nz points = StructGrid { dimSG = (nx, ny, nz)
-                                          , setSG = points }
-                               
+                              
 -- ------------------------- Cell containers -------------------------------------
 
 class Foldable cont b where

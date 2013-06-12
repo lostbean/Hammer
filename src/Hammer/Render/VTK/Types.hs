@@ -90,6 +90,7 @@ data VTKDataSet a =
     { dimSP    :: (Int, Int, Int)
     , originSP :: (Double, Double, Double)
     , spaceSP  :: (Double, Double, Double)
+    , setSP    :: Vector a
     }
 
   | StructGrid

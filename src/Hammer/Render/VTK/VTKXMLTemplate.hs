@@ -49,30 +49,35 @@ renderDoc (dataSetType, attr) node = let
 
 renderType::(RenderElemVTK a)=> VTKDataSet a -> (String, Xml Attr)
 renderType dataSet = case dataSet of 
-  StructPoint  {}        -> ("ImageData",        noAttrs)
-  StructGrid   {}        -> ("StructuredGrid",   noAttrs)
-  RectLinGrid  dim _ _ _ -> ("RectilinearGrid",  renderWholeExtAttr dim)
-  UnstructGrid {}        -> ("UnstructuredGrid", noAttrs)
+  StructPoint  dim orig spc _ -> ("ImageData",        renderWholeExtAttr  dim  <>
+                                                      renderOriginAttr    orig <>
+                                                      renderSpaceAttr     spc  )
+  StructGrid   {}             -> ("StructuredGrid",   noAttrs)
+  RectLinGrid  dim _ _ _      -> ("RectilinearGrid",  renderWholeExtAttr dim)
+  UnstructGrid {}             -> ("UnstructuredGrid", noAttrs)
 
 -- =============================== render VTK types ==================================================
                             
 renderVTK::(RenderElemVTK a)=> VTK a -> Xml Elem
 renderVTK VTK{..} = case dataSet of 
-  StructPoint dime orig spc               -> renderSP isBinary dime orig spc              pointData cellData 
-  StructGrid  dime set                    -> renderSG isBinary dime set                   pointData cellData 
-  RectLinGrid dime setX setY setZ         -> renderRG isBinary dime setX setY setZ        pointData cellData 
+  StructPoint dime orig spc set           -> renderSP isBinary dime orig spc set     pointData cellData 
+  StructGrid  dime set                    -> renderSG isBinary dime set              pointData cellData 
+  RectLinGrid dime setX setY setZ         -> renderRG isBinary dime setX setY setZ   pointData cellData 
   UnstructGrid set cell cellOff cellType  -> renderUG True set cell cellOff cellType pointData cellData 
-
-renderSP :: a
-renderSP = error "[Hammer] Can't render this type of VTK file. No implemented yet."
-
+  
 renderSG :: a
 renderSG = error "[Hammer] Can't render this type of VTK file. No implemented yet."
+
+renderSP :: (RenderElemVTK a)=> Bool -> (Int, Int, Int) -> (Double, Double, Double)
+         -> (Double, Double, Double) -> Vector a -> [VTKAttrPoint a] -> [VTKAttrCell a] -> Xml Elem
+renderSP isBin ext _ _ ps pointData _ = let
+  nodes = [ renderPointData isBin ps pointData ]
+  in xelem "Piece" $ xattrRaw "Extent" (renderExtent ext) <#> xelems nodes
 
 renderRG :: (RenderElemVTK a)=> Bool -> (Int, Int, Int) -> Vector a -> Vector a
          -> Vector a -> [VTKAttrPoint a] -> [VTKAttrCell a] -> Xml Elem
 renderRG isBin ext@(dx, dy, dz) setX setY setZ pointData cellData = let
-  size      = dx*dy*dz
+  size      = dx * dy * dz
   vecOne    = U.replicate size 1
   vecVertex = V.replicate size VTK_VERTEX
   vecSerial = U.fromList [ i + dx*j + dx*dy*k | i <- [0..dx], j <- [0..dy], k <- [0..dz] ]
@@ -151,7 +156,16 @@ renderCells isBin cellConn cellOffsets cellTypes faces faceOffsets = xelem "Cell
 
 renderWholeExtAttr :: (Int, Int, Int) -> Xml Attr
 renderWholeExtAttr = xattr "WholeExtent" . renderExtent
-                
+
+renderSpaceAttr :: (Double, Double, Double) -> Xml Attr
+renderSpaceAttr = xattr "Space" . renderTriple
+
+renderOriginAttr :: (Double, Double, Double) -> Xml Attr
+renderOriginAttr = xattr "Origin" . renderTriple
+                   
+renderTriple :: (Show a)=> (a, a, a) -> Text
+renderTriple (a, b, c) = T.unwords [toTxt a, toTxt b, toTxt c]
+              
 renderExtent :: (Int, Int, Int) -> Text
 renderExtent (dx, dy, dz) = let
   zr = toTxt (0 :: Int)
