@@ -138,7 +138,7 @@ Library
                     Hammer.VoxBox.VoxConnFinder
                     Hammer.VoxBox.MicroVoxel
 
-                    --Hammer.Texture.Symmetry
+                    Hammer.Texture.Symmetry
                     Hammer.Texture.Orientation
                     Hammer.Texture.Bingham
                     Hammer.Reader.ANGReader
