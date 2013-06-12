@@ -16,7 +16,6 @@ import           System.Random
 import           Hammer.MicroGraph
 import           Hammer.Render.VTK.VTKRender
 import           Hammer.Render.VoxBoxVTK
-import           Hammer.Texture.Harmonics.BaseFunctions
 import           Hammer.VoxBox.Base
 import           Hammer.VoxBox.VoxConnFinder
 import           Hammer.VoxBox.MicroVoxel
@@ -25,8 +24,7 @@ import           TestGrainFinder
 
 data Tester =
   Tester
-  { run_proflie_harmonics   :: Maybe String
-  , run_test_GrainFinder    :: Maybe String
+  { run_test_GrainFinder    :: Maybe String
   , run_profile_GrainFinder :: Maybe String
   , run_profile_VTKRender   :: Maybe String
   , run_test_suit           :: Bool
@@ -35,11 +33,6 @@ data Tester =
 tester :: Parser Tester
 tester = Tester
   <$> parseMaybeOpt
-      (  long "harmonics-test"
-      <> short 'a'
-      <> metavar "VTK_OUT"
-      <> help "Test spherical harmonics module" )
-  <*> parseMaybeOpt
       (  long "grainfinder-test"
       <> short 'g'
       <> metavar "VTK_OUT"
@@ -73,12 +66,9 @@ main = execParser opts >>= run
 run :: Tester -> IO ()
 run Tester{..} = do
   if run_test_suit
-    then runChecker
-    else print "Skiping test suit."
-  
-  case run_proflie_harmonics of
-    Just x -> profile_harmonics x
-    _      -> print "Skiping harmonics profile." 
+    then do
+    runChecker
+    else putStrLn "Skiping test suit."
 
   case run_profile_GrainFinder of
     Just x -> profile_GrainFinder x
@@ -92,22 +82,6 @@ run Tester{..} = do
     Just x -> profile_VTKRender x
     _      -> print "Skiping VTKRender profile."
    
-profile_harmonics fout = do 
-  rnd <- newStdGen
-  let
-    mzero i = buildMatrix (2*i+1) (2*i+1) (\_->0)
-    rs   = take 100 $ randoms rnd
-    cs i = scale (1/100) $ foldl' add (mzero i) $
-           map ( \x -> let
-                    k= pi/10 * (1+(x-0.5)/100)
-                    in getRealCoef (L i) k k k
-               ) rs
-    c    = map cs [0 .. 15]
-    k    = (pi/2)/18
-    p    = map (plotPhi2SectionReal c) [k*i | i<-[0..17]]
-  --saveToGNUPlot "/home/edgar/Desktop/odf.data" p
-  saveToVTKPlot (fout ++ ".vti") p
-
 profile_VTKRender fout = let
   vbox = VoxBox { dimension = mkStdVoxBoxRange (VoxBoxDim 100  100  100)
                 , origin    = VoxBoxOrigin  0    0    0

@@ -13,7 +13,6 @@ import           Criterion.Main
 import           Hammer.MicroGraph
 import           Hammer.Render.VTK.VTKRender
 import           Hammer.Render.VoxBoxVTK
-import           Hammer.Texture.Harmonics.BaseFunctions
 import           Hammer.VoxBox.Base
 import           Hammer.VoxBox.VoxConnFinder
 import           Hammer.VoxBox.MicroVoxel
