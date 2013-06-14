@@ -17,6 +17,7 @@ module Hammer.Math.Algebra
   , distance
   , angle
   , angle'
+  , acosSafe
   , UnitVector (..)
   , Pointwise (..)
   , Extend (..)

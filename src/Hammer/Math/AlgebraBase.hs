@@ -236,13 +236,23 @@ distance :: (MultiVec v, DotProd v) => v -> v -> Double
 distance x y = norm (x &- y)
 
 -- | the angle between two vectors
-angle :: (MultiVec v, DotProd v) => v -> v -> Double 
-angle x y = acos $ (x &. y) / (norm x * norm y)
+angle :: (MultiVec v, DotProd v) => v -> v -> Double
+angle x y = acosSafe $ (x &. y) / (norm x * norm y)
 
 -- | the angle between two unit vectors
-angle' {- ' CPP is sensitive to primes -} :: (MultiVec v, UnitVector v u, DotProd v) => u -> u -> Double 
-angle' x y = acos (fromNormal x &. fromNormal y)
+angle' :: (MultiVec v, UnitVector v u, DotProd v) => u -> u -> Double
+angle' x y = acosSafe (fromNormal x &. fromNormal y)
 
+-- | Safe version of 'acos' function where its boudaries (@1@ and @-1@) acepts a small
+-- truncation error like @1.00000000000001@ instead of returning @NaN@. The value is
+-- round to the closest valid boundary.
+acosSafe :: (Floating a, Ord a)=> a -> a
+acosSafe x
+  -- error limmit 1e-12
+  | x >  1 && x < ( 1.000000000001) = acos 1
+  | x < -1 && x > (-1.000000000001) = acos (-1)
+  | otherwise                       = acos x
+{-# INLINE acosSafe #-}
 
 -- | Projects the first vector down to the hyperplane orthogonal to the second (unit) vector
 project' :: (MultiVec v, UnitVector v u, DotProd v) => v -> u -> v
