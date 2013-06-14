@@ -64,14 +64,20 @@ instance CrossProd Normal3 where
 
 -- | The assumption when dealing with these is always that they are of unit length.
 -- Also, interpolation works differently.
-newtype Normal2 = Normal2 Vec2 deriving ( Eq, Read, Show, Storable, DotProd, Dimension
+newtype Normal2 = Normal2 Vec2 deriving ( Eq, Read, Show
+                                        , Storable, DotProd, Dimension
+                                        , AbelianGroup, MultiVec
                                         , G.Vector U.Vector, M.MVector U.MVector, U.Unbox )
-                                        
-newtype Normal3 = Normal3 Vec3 deriving (Eq, Read, Show, Storable, DotProd, Dimension 
+
+newtype Normal3 = Normal3 Vec3 deriving ( Eq, Read, Show
+                                        , Storable, DotProd, Dimension
+                                        , AbelianGroup, MultiVec
                                         , G.Vector U.Vector, M.MVector U.MVector, U.Unbox )
-                                        
-newtype Normal4 = Normal4 Vec4 deriving (Eq, Read, Show, Storable, DotProd, Dimension 
-                                        , G.Vector U.Vector, M.MVector U.MVector, U.Unbox ) 
+
+newtype Normal4 = Normal4 Vec4 deriving ( Eq, Read, Show
+                                        , Storable, DotProd, Dimension
+                                        , AbelianGroup, MultiVec
+                                        , G.Vector U.Vector, M.MVector U.MVector, U.Unbox )
 
 --------------------------------------------------------------------------------
 -- Vec2 instances
