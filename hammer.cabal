@@ -34,20 +34,20 @@ Executable ANGCorrector
                      , hammer
                      , base                 == 4.*
                      , vector               == 0.10.*
-                     
+
        hs-source-dirs: profile
-       
+
        ghc-options:
                        -Wall
                        -O2
-                       -rtsopts 
-                       -threaded 
+                       -rtsopts
+                       -threaded
                        -- -eventlog
        Buildable:      True
 
     else
        Buildable:      False
-       
+
 Executable hammer-benchmark
     main-is:           Benchmark.hs
     if flag(test)
@@ -58,17 +58,17 @@ Executable hammer-benchmark
                      , unordered-containers == 0.2.*
                      , containers           >= 0.4
                      , criterion            >= 0.6
-                     
+
        hs-source-dirs: profile
-       
+
        ghc-options:
                        -Wall
                        -O2
-                       -rtsopts 
+                       -rtsopts
                        -funbox-strict-fields
-                       -threaded 
+                       -threaded
                        -- -eventlog
-                       -auto-all                       
+                       -auto-all
                        -caf-all
 
        Buildable:      True
@@ -86,17 +86,17 @@ Executable hammer-profile
                      , hmatrix              == 0.14.*
                      , unordered-containers == 0.2.*
                      , QuickCheck           >= 2.5
-                     
+
        hs-source-dirs: profile
-       
+
        ghc-options:
                        -Wall
                        -O2
-                       -rtsopts 
+                       -rtsopts
                        -funbox-strict-fields
-                       -threaded 
+                       -threaded
                        -- -eventlog
-                       -auto-all                       
+                       -auto-all
                        -caf-all
 
        Buildable:      True
@@ -123,7 +123,7 @@ Library
                 , blaze-builder        == 0.3.*
                 , base64-bytestring    == 1.0.*
                 , criterion            >= 0.6
-                
+
   exposed-modules:  Hammer.Math.Algebra
                     Hammer.Math.SphereProjection
                     Hammer.Math.SortSeq
@@ -153,7 +153,7 @@ Library
 
                     Hammer.Render.VTK.VTKXMLTemplate
                     Hammer.Render.VTK.Types
-                    
+
                     Hammer.MicroGraph.Types
                     Hammer.MicroGraph.GrainGraphReader
                     Hammer.MicroGraph.GrainGraphBuilder
@@ -162,7 +162,7 @@ Library
                     Hammer.VoxBox.Types
 
                     Hammer.Texture.BinghamNormalization
-                    
+
   exposed:        True
   buildable:      True
   hs-source-dirs: src
@@ -173,7 +173,5 @@ Library
                   -funbox-strict-fields
                   -threaded
                   -- -eventlog
-                  -auto-all                       
+                  -auto-all
                   -caf-all
-
-

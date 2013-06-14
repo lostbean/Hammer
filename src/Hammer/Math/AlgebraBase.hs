@@ -210,15 +210,15 @@ class MatFunctor a where
   matZipWith :: (Double -> Double -> Double) -> a -> a -> a
 
 -- ================================== Vec / Mat datatypes ====================================
- 
-data Vec2 = Vec2 {-# UNPACK #-} !Double {-# UNPACK #-} !Double 
+
+data Vec2 = Vec2 {-# UNPACK #-} !Double {-# UNPACK #-} !Double
   deriving (Eq, Read, Show)
-data Vec3 = Vec3 {-# UNPACK #-} !Double {-# UNPACK #-} !Double {-# UNPACK #-} !Double 
+data Vec3 = Vec3 {-# UNPACK #-} !Double {-# UNPACK #-} !Double {-# UNPACK #-} !Double
   deriving (Eq, Read, Show)
 data Vec4 = Vec4 {-# UNPACK #-} !Double {-# UNPACK #-} !Double {-# UNPACK #-} !Double {-# UNPACK #-} !Double 
   deriving (Eq, Read, Show)
 
--- | The components are /row/ vectors 
+-- | The components are /row/ vectors
 data Mat2 = Mat2 !Vec2 !Vec2              deriving (Eq, Read, Show)
 data Mat3 = Mat3 !Vec3 !Vec3 !Vec3        deriving (Eq, Read, Show)
 data Mat4 = Mat4 !Vec4 !Vec4 !Vec4 !Vec4  deriving (Eq, Read, Show)
