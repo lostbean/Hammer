@@ -140,6 +140,7 @@ Library
 
                     Hammer.Texture.Symmetry
                     Hammer.Texture.Orientation
+                    Hammer.Texture.IPF
                     Hammer.Texture.Bingham
                     Hammer.Reader.ANGReader
                     Hammer.Writer.ANGWriter
