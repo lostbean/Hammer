@@ -125,7 +125,6 @@ Library
                 , criterion            >= 0.6
 
   exposed-modules:  Hammer.Math.Algebra
-                    Hammer.Math.SphereProjection
                     Hammer.Math.SortSeq
                     Hammer.Math.SparseMatrix
 
@@ -140,8 +139,10 @@ Library
 
                     Hammer.Texture.Symmetry
                     Hammer.Texture.Orientation
+                    Hammer.Texture.SphereProjection
                     Hammer.Texture.IPF
                     Hammer.Texture.Bingham
+
                     Hammer.Reader.ANGReader
                     Hammer.Writer.ANGWriter
 
