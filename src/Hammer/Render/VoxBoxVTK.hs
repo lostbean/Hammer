@@ -9,9 +9,7 @@ import qualified Data.List             as L
 import qualified Data.Vector           as V
 import qualified Data.Vector.Unboxed   as U
 import qualified Data.HashMap.Strict   as HM
---import qualified Data.HashSet          as HS
 
---import           Control.Applicative   ((<$>))
 import           Data.Maybe            (mapMaybe)
 import           Data.Vector.Unboxed   (Vector, Unbox)
 
@@ -25,7 +23,7 @@ import           Hammer.Render.VTK.VTKRender
 import           Debug.Trace
 --dbg a = trace ("@@@@@@@>> " ++ show a) a
 
--- ==========================================================================================
+-- =======================================================================================
 
 newtype VoxBoxExt a = VoxBoxExt (VoxBox a)
 
@@ -75,7 +73,7 @@ renderEdgePos (VoxBoxExt vbox) edge = let
     Ex p -> (f000 p, f100 p)
     Ey p -> (f000 p, f010 p)
     Ez p -> (f000 p, f001 p)
-                 
+
 renderVoxelPos :: VoxBoxExt a -> VoxelPos -> Int
 renderVoxelPos (VoxBoxExt vbox) p = case getVoxelID (dimension vbox) p of
   Just x -> x
@@ -105,7 +103,7 @@ getVoxBoxCornersPoints (VoxBoxExt vbox) = let
     in evalVoxelPos vbox (origin #+# VoxelPos x y z)
   in U.generate size foo
 
--- ==========================================================================================
+-- =======================================================================================
 
 -- | Render to VTK using RectlinearGrid.
 -- A @VoxBoxDim@ of x, y and z will result in x*z*y cells
@@ -119,7 +117,8 @@ renderVoxBoxVTK vbox attrs = let
   vtk = mkRLGVTK "MicroGraph" vx vy vz
   in L.foldl' addDataCells vtk attrs
 
-renderVoxElemListVTK :: (RenderCell (VTKElem elem), RenderVox elem)=> VoxBox a -> [elem] -> VTK Vec3
+renderVoxElemListVTK :: (RenderCell (VTKElem elem), RenderVox elem)=>
+                        VoxBox a -> [elem] -> VTK Vec3
 renderVoxElemListVTK vbox v = let
   vbext = getExtendedVoxBox vbox
   ps    = getVoxBoxCornersPoints vbext
@@ -129,11 +128,12 @@ renderVoxElemListVTK vbox v = let
   vtk   = mkUGVTK "MicroGraph" ps rs
   in addDataCells vtk attr
 
-renderVoxElemVTK :: (Unbox elem, RenderCell (VTKElem elem), RenderVox elem)=> VoxBox a -> [V.Vector elem] -> VTK Vec3
+renderVoxElemVTK :: (Unbox elem, RenderCell (VTKElem elem), RenderVox elem)=>
+                    VoxBox a -> [V.Vector elem] -> VTK Vec3
 renderVoxElemVTK vbox v = let
   vbext = getExtendedVoxBox vbox
   ps    = getVoxBoxCornersPoints vbext
-  color = U.concat $ map (\(fid, x) -> U.replicate (V.length x) fid) $ zip [(1 :: Int) ..] v
+  color = U.concat $ map (\(fid, x) -> U.replicate (V.length x) fid) $ zip [(1::Int) ..] v
   rs    = V.map (renderVox vbext) $ V.concat v
   attr  = mkCellAttr "color" (\a _ _ -> color U.! a)
   vtk   = mkUGVTK "MicroGraph" ps rs
@@ -153,7 +153,7 @@ renderMicroEdgesVTK vbox mv = renderAllElemProp vbox (HM.elems $ microEdges mv)
 
 renderMicroFacesVTK :: VoxBox a -> MicroVoxel -> VTK Vec3
 renderMicroFacesVTK vbox mv = renderAllElemProp vbox (HM.elems $ microFaces mv)
-                              
+
 renderMicroVertexVTK :: VoxBox a -> MicroVoxel -> VTK Vec3
 renderMicroVertexVTK vbox mv = let
   ps = mapMaybe getPropValue (HM.elems $ microVertex mv)
@@ -162,5 +162,3 @@ renderMicroVertexVTK vbox mv = let
 instance RenderCell (Int, Int, Int, Int) where
   makeCell (a,b,c,d) = U.fromList [a,b,c,d]
   getType _          = VTK_QUAD
-
-
