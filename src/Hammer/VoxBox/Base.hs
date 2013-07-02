@@ -225,27 +225,35 @@ evalDisplacedVoxelPos vbox dir vpos = let
   YDir -> v &+ Vec3 0  dy 0
   ZDir -> v &+ Vec3 0  0  dz
 
+-- | Evaluate the position at base of the voxel. Keep in mind that the base of a voxel is
+-- the center of Cartesian system if the voxel is positioned at top-front-right octant
+-- e.g. @VoxelPos 0 0 0@ has its center at @Vec3 0 0 0@ and its base at @Vec3 -0.5*dx
+-- -0.5*dy -0.5*dz@ where @dx@, @dy@ and @dz@ are the voxel dimensions.
 evalVoxelPos :: VoxBox a -> VoxelPos -> Vec3
 evalVoxelPos vbox (VoxelPos x y z) = let
-  VoxBoxOrigin  ix iy iz = origin  vbox
-  VoxelDim      dx dy dz = spacing vbox
-  vx = (ix - dx/2) + dx * (fromIntegral x)
-  vy = (iy - dy/2) + dy * (fromIntegral y)
-  vz = (iz - dz/2) + dz * (fromIntegral z)
+  VoxBoxOrigin ix iy iz = origin  vbox
+  VoxelDim     dx dy dz = spacing vbox
+  vx = ix + dx * (fromIntegral x - 0.5)
+  vy = iy + dy * (fromIntegral y - 0.5)
+  vz = iz + dz * (fromIntegral z - 0.5)
   in Vec3 vx vy vz
 
+-- | Evaluate the face plane given by a point and a normal the face where the point is at
+-- the center of a voxel face.
 evalFacePos :: VoxBox a -> FaceVoxelPos -> Plane Vec3 Normal3
 evalFacePos vbox face = let
-  func (a, b) = Plane $ (evalVoxelPos vbox a, toNormalUnsafe b)
-  in func $ case face of
-    Fx p -> (p, Vec3 1 0 0)
-    Fy p -> (p, Vec3 0 1 0)
-    Fz p -> (p, Vec3 0 0 1)
+  VoxelDim dx dy dz = spacing vbox
+  func (a, b) diff = Plane $ (evalVoxelPos vbox a &+ diff, toNormalUnsafe b)
+  in case face of
+    Fx p -> func (p, Vec3 1 0 0) (Vec3 0      (dy/2) (dz/2))
+    Fy p -> func (p, Vec3 0 1 0) (Vec3 (dx/2) 0      (dz/2))
+    Fz p -> func (p, Vec3 0 0 1) (Vec3 (dx/2) (dy/2) 0     )
 
 findIntersection :: (DotProd u, UnitVector v u)=> Plane v u -> Line v u -> Maybe v
 findIntersection (Plane (p0, n)) (Line (l0, l))
-  | kb == 0         = Nothing
-  | k > 0 && k <= 1 = Just $ k *& (fromNormal l) &+ l0
+  | kb == 0            = Nothing
+  | kb == 0 && ka == 0 = Just $ p0
+  | otherwise          = Just $ (ka / kb) *& (fromNormal l) &+ l0
   | otherwise       = Nothing
   where
     ka = (p0 &- l0) &. (fromNormal n)
