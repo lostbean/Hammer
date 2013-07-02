@@ -81,34 +81,28 @@ renderVoxelPos (VoxBoxExt vbox) p = case getVoxelID (dimension vbox) p of
   Just x -> x
   _      -> trace ("-----------> " ++ show p ++ show (dimension vbox)) 0
 
+-- | Extends the range ('VoxBoxDim') of an given 'VoxBox' in order to calculate all voxel
+-- corner points. See 'getVoxBoxCornersPoints'.
 getExtendedVoxBox :: VoxBox a -> VoxBoxExt a
 getExtendedVoxBox vbox = let
   func (VoxBoxDim x y z) = VoxBoxDim (x+1) (y+1) (z+1)
   range = let vbr = dimension vbox
-          in vbr { vbrDim = func $ vbrDim vbr} 
+          in vbr { vbrDim = func $ vbrDim vbr}
   in VoxBoxExt $ vbox { dimension = range }
-     
-getVoxBoxCornersPoints :: VoxBoxExt a -> Vector Vec3 
-getVoxBoxCornersPoints (VoxBoxExt vbox) = let
-  VoxBox{..} = vbox 
-  VoxBoxOrigin  ix iy iz = origin
-  VoxelDim      dx dy dz = spacing
-  VoxelPos      ibx iby ibz = vbrOrigin dimension
-  VoxBoxDim     dbx dby _   = vbrDim    dimension
 
+-- | Calculate all the voxel's corner points (vertices from voxel box) by calculating the
+-- base point of each 'VoxelPos' in a extended range.
+getVoxBoxCornersPoints :: VoxBoxExt a -> Vector Vec3
+getVoxBoxCornersPoints (VoxBoxExt vbox) = let
+  dimData = dimension vbox
+  origin  = vbrOrigin dimData
+  size    = sizeVoxBoxRange dimData
+  VoxBoxDim dbx dby _ = vbrDim dimData
   foo i = let
-    (z, rz) = i  `quotRem` (dbx*dby)
+    (z, rz) = i  `quotRem` (dbx * dby)
     (y, ry) = rz `quotRem` dbx
     x       = ry
-
-    vx = (ix - dx/2) + dx * (fromIntegral $ ibx + x)
-    vy = (iy - dy/2) + dy * (fromIntegral $ iby + y)
-    vz = (iz - dz/2) + dz * (fromIntegral $ ibz + z)
-    in Vec3 vx vy vz
-
-  --range = dimension vbox
-  size  = sizeVoxBoxRange dimension
-  --in U.generate size (evalVoxelPos vbox . (range %#))
+    in evalVoxelPos vbox (origin #+# VoxelPos x y z)
   in U.generate size foo
 
 -- ==========================================================================================
