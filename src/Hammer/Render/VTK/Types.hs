@@ -1,35 +1,36 @@
+{-# LANGUAGE FlexibleInstances    #-}
+{-# LANGUAGE RecordWildCards      #-}
 {-# LANGUAGE TypeSynonymInstances #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE RecordWildCards #-}
 
 module Hammer.Render.VTK.Types where
 
-import qualified Data.ByteString.Lazy.Builder as BB
-import qualified Data.Text.Lazy.Encoding      as TE
-import qualified Data.Vector                  as V
+import qualified Data.ByteString.Lazy.Builder     as BB
+import qualified Data.Text.Lazy.Encoding          as TE
+import qualified Data.Vector                      as V
 
-import           Data.Text                    (Text)
-import           Data.Vector.Unboxed          (Vector, Unbox)
-import           Data.Monoid                  ((<>))
-import           Data.Text.Lazy.Builder       (toLazyText)
+import           Data.Monoid                      ((<>))
+import           Data.Text                        (Text)
+import           Data.Text.Lazy.Builder           (toLazyText)
+import           Data.Vector.Unboxed              (Unbox, Vector)
 
-import           Data.Text.Lazy.Builder.RealFloat
 import           Data.Text.Lazy.Builder.Int
+import           Data.Text.Lazy.Builder.RealFloat
 
 import           Hammer.Math.Algebra
 
+-- =======================================================================================
 
 class RenderPoint point where
   renderPoint       :: point -> BB.Builder
   renderBinaryPoint :: point -> BB.Builder
-  
+
 class (RenderPoint a, Unbox a)=> RenderElemVTK a
 
-instance RenderElemVTK Int 
-instance RenderElemVTK Double 
-instance RenderElemVTK Vec3 
-instance RenderElemVTK Vec2 
-instance RenderElemVTK Mat3 
+instance RenderElemVTK Int
+instance RenderElemVTK Double
+instance RenderElemVTK Vec3
+instance RenderElemVTK Vec2
+instance RenderElemVTK Mat3
 
 class RenderCell shape where
   makeCell :: shape -> Vector Int
@@ -39,26 +40,27 @@ class RenderCell shape where
 class RenderAttr attr where
   -- | This function creates an attribute of type 'attr' for each cell.
   -- It is itself a function that is given to render, where:
-  -- 
-  -- * Int      : is the position in the cell list 
-  -- 
-  -- * Vector a : is the list of point the cell 
-  -- 
+  --
+  -- * Int      : is the position in the cell list
+  --
+  -- * Vector a : is the list of point the cell
+  --
   -- * CellType : is the type of the cell
-  -- 
-  -- > let attr = mkCellAttr "color" (\i x cellType -> (Vec3 1 1 1) &* 1/(evalCellType cellType))
-  -- 
+  --
+  -- > let attr = mkCellAttr "color" (\i x cellType -> (Vec3 1 1 1) &*
+  --   1/(evalCellType cellType))
+  --
   mkCellAttr  :: String -> (Int -> Vector a -> CellType -> attr) -> VTKAttrCell a
 
   -- | This function creates an attribute of type 'attr' for each point.
   -- It is itself a function that is given to render, where:
-  -- 
-  -- * Int : is the position in the point list 
-  -- 
+  --
+  -- * Int : is the position in the point list
+  --
   -- * a   : is the value of the point
-  -- 
+  --
   -- > let attr = mkCellAttr "grainID" (\i x -> grainIDTable!i)
-  -- 
+  --
   mkPointAttr :: String -> (Int -> a -> attr) -> VTKAttrPoint a
 
 type MultiPieceVTK a =  Vector (VTK a)
@@ -176,7 +178,7 @@ instance RenderPoint Vec3 where
   renderPoint (Vec3 x y z) =
     renderPoint x <>
     renderPoint y <>
-    renderPoint z 
+    renderPoint z
 
   renderBinaryPoint (Vec3 x y z) =
     renderBinaryPoint x <>
