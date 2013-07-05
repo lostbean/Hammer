@@ -27,18 +27,18 @@ import           Hammer.Render.VTK.Types
 
 -- =======================================================================================
 
-renderVTKUni::(RenderElemVTK a)=> VTK a -> Xml Doc
-renderVTKUni vtk = let
+renderVTKUni::(RenderElemVTK a)=> Bool -> VTK a -> Xml Doc
+renderVTKUni isBinary vtk = let
   dataSetType = renderType $ dataSet vtk
-  node        = [renderVTK vtk]
+  node        = [renderVTK isBinary vtk]
   in renderDoc dataSetType node
 
-renderVTKMulti::(RenderElemVTK a)=> V.Vector (VTK a) -> Xml Doc
-renderVTKMulti vtk = let
+renderVTKMulti::(RenderElemVTK a)=> Bool -> V.Vector (VTK a) -> Xml Doc
+renderVTKMulti isBinary vtk = let
   dataSetType = if V.null vtk
                 then ("", noAttrs)
                 else (renderType . dataSet .  V.head) vtk
-  nodes       = V.toList $ V.map renderVTK vtk
+  nodes       = V.toList $ V.map (renderVTK isBinary) vtk
   in renderDoc dataSetType nodes
 
 renderDoc :: (String, Xml Attr) -> [Xml Elem] -> Xml Doc
@@ -56,14 +56,14 @@ renderType dataSet = case dataSet of
   RectLinGrid  dim _ _ _      -> ("RectilinearGrid",  renderWholeExtAttr dim)
   UnstructGrid {}             -> ("UnstructuredGrid", noAttrs)
 
--- =============================== render VTK types =======================================
+-- =============================== render VTK types ======================================
 
-renderVTK::(RenderElemVTK a)=> VTK a -> Xml Elem
-renderVTK VTK{..} = case dataSet of
+renderVTK :: (RenderElemVTK a)=> Bool -> VTK a -> Xml Elem
+renderVTK isBinary VTK{..} = case dataSet of
   StructPoint dime orig spc set           -> renderSP isBinary dime orig spc set     pointData cellData
   StructGrid  dime set                    -> renderSG isBinary dime set              pointData cellData
   RectLinGrid dime setX setY setZ         -> renderRG isBinary dime setX setY setZ   pointData cellData
-  UnstructGrid set cell cellOff cellType  -> renderUG True set cell cellOff cellType pointData cellData
+  UnstructGrid set cell cellOff cellType  -> renderUG isBinary set cell cellOff cellType pointData cellData
 
 renderSG :: a
 renderSG = error "[Hammer] Can't render this type of VTK file. No implemented yet."
@@ -104,24 +104,15 @@ renderUG isBin set cell cellOff cellType pointData cellData = let
 
 renderPointData::(RenderElemVTK a)=> Bool -> Vector a -> [VTKAttrPoint a] -> Xml Elem
 renderPointData isBin pointData attrs = let
-  fmapAttr attr = case attr of
-    IDData     name func -> IDData     name (eval func)
-    ScalarData name func -> ScalarData name (eval func)
-    VectorData name func -> VectorData name (eval func)
-    TensorData name func -> TensorData name (eval func)
-  eval (AttrPoint func) = U.imap func pointData
-  in xelem "PointData" $ xelems $ P.map (renderData isBin . fmapAttr) attrs
-
+  renderAttr (VTKAttrPoint name func) = renderDataArray isBin (U.imap func pointData) name
+  in xelem "PointData" $ xelems $ P.map renderAttr attrs
 
 renderCellData :: (RenderElemVTK a)=> Bool -> Vector a -> Vector Int -> Vector Int
                -> V.Vector CellType -> [VTKAttrCell a] -> Xml Elem
 renderCellData isBin set cell cellOff cellType attrs = let
-  fmapAttr attr = case attr of
-    IDData     name func -> IDData     name (eval func)
-    ScalarData name func -> ScalarData name (eval func)
-    VectorData name func -> VectorData name (eval func)
-    TensorData name func -> TensorData name (eval func)
-  eval (AttrCell func) = U.imap (mode func) cellOff
+  renderAttr (VTKAttrCell name func) = let
+    arr = U.imap (mode func) cellOff
+    in renderDataArray isBin arr name
   mode func i _ = let
     sec = U.map (set!) $
           if i == 0
@@ -129,14 +120,7 @@ renderCellData isBin set cell cellOff cellType attrs = let
           else U.slice (cellOff!i-1) (cellOff!i) cell
     tp  = cellType V.! i
     in func i sec tp
-  in xelem "CellData" $ xelems $ P.map (renderData isBin . fmapAttr) attrs
-
-renderData :: Bool -> VTKAttr Vector -> Xml Elem
-renderData isBin attr = case attr of
-    IDData     n vs -> renderDataArray isBin vs 1 n "Int32"
-    ScalarData n vs -> renderDataArray isBin vs 1 n "Float64"
-    VectorData n vs -> renderDataArray isBin vs 3 n "Float64"
-    TensorData n vs -> renderDataArray isBin vs 9 n "Float64"
+  in xelem "CellData" $ xelems $ P.map renderAttr attrs
 
 renderCells :: Bool -> Vector Int -> Vector Int -> V.Vector CellType
             -> Vector Int -> Vector Int -> Xml Elem
@@ -146,11 +130,11 @@ renderCells isBin cellConn cellOffsets cellTypes faces faceOffsets = let
          then conn : off : [types]
          else conn : off : types : fac : [facoff]
 
-  conn   = func cellConn    0 "connectivity" "Int32"
-  off    = func cellOffsets 0 "offsets"      "Int32"
-  types  = func cts         0 "types"        "Int32"
-  fac    = func faces       0 "faces"        "Int32"
-  facoff = func faceOffsets 0 "faceoffsets"  "Int32"
+  conn   = func cellConn    "connectivity"
+  off    = func cellOffsets "offsets"
+  types  = func cts         "types"
+  fac    = func faces       "faces"
+  facoff = func faceOffsets "faceoffsets"
 
   func = renderDataArray isBin
   in xelem "Cells" $ xelems full
@@ -185,30 +169,34 @@ renderCoordinates isBin setX setY setZ = let
 renderCoordinatePoint :: (RenderElemVTK a)=> Bool -> Vector a -> String -> Xml Elem
 renderCoordinatePoint isBin points dir = let
   name = dir P.++ "_coordinate"
-  in renderDataArray isBin points 1 name "Float64"
+  in renderDataArray isBin points name
 
 renderPoints :: (RenderElemVTK a)=> Bool -> Vector a -> Xml Elem
 renderPoints isBin points = let
-  child = renderDataArray isBin points 3 "Points" "Float64"
+  child = renderDataArray isBin points "Points"
   in xelem "Points" child
 
-renderDataArray :: (RenderElemVTK a)=> Bool -> Vector a -> Int -> String -> String -> Xml Elem
-renderDataArray isBin points rank name n_type = let
+renderDataArray :: (RenderElemVTK a)=> Bool -> Vector a -> String -> Xml Elem
+renderDataArray isBin points name = let
   size = encode . BB.toLazyByteString . BB.word32BE . fromIntegral $ U.length points
   vecRender
     | isBin = (size <>) . encode . BB.toLazyByteString . foldMap renderBinaryPoint . U.toList
     | otherwise = BB.toLazyByteString . foldMap renderPoint . U.toList
-  attrList
-    | rank > 1  = ncompAttr:basicAttr
-    | otherwise = basicAttr
   format
     | isBin     = "binary"
     | otherwise = "ascii"
-  basicAttr = [ xattr "type"   n_type
-              , xattr "Name"   name
-              , xattr "format" format ]
-  ncompAttr = xattr "NumberOfComponents" (toTxt rank)
-  in xelem "DataArray" ((xattrs attrList) <#> (xtextRaw $ vecRender points))
+  attr = [ xattr "type"               (getNumType points)
+         , xattr "Name"               name
+         , xattr "format"             format
+         , xattr "NumberOfComponents" (getNumComp points)
+         ]
+  in xelem "DataArray" ((xattrs attr) <#> (xtextRaw $ vecRender points))
+
+getNumType :: (RenderPoint a, U.Unbox a)=> Vector a -> String
+getNumType = renderNumType . pointNumberType . U.head
+
+getNumComp :: (RenderPoint a, U.Unbox a)=> Vector a -> Text
+getNumComp =  toTxt . pointNumberComp . U.head
 
 toTxt::(Show a)=> a -> Text
 toTxt = T.pack.show

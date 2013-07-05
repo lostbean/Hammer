@@ -1,17 +1,20 @@
-{-# LANGUAGE FlexibleInstances    #-}
-{-# LANGUAGE RecordWildCards      #-}
-{-# LANGUAGE TypeSynonymInstances #-}
+{-# LANGUAGE FlexibleInstances         #-}
+{-# LANGUAGE RecordWildCards           #-}
+{-# LANGUAGE TypeSynonymInstances      #-}
+{-# LANGUAGE ExistentialQuantification #-}
 
 module Hammer.Render.VTK.Types where
 
-import qualified Data.ByteString.Lazy.Builder     as BB
-import qualified Data.Text.Lazy.Encoding          as TE
-import qualified Data.Vector                      as V
+import qualified Data.ByteString.Lazy.Builder       as BB
+import qualified Data.ByteString.Lazy.Builder.ASCII as BBA
+import qualified Data.Text.Lazy.Encoding            as TE
+import qualified Data.Vector                        as V
 
-import           Data.Monoid                      ((<>))
-import           Data.Text                        (Text)
-import           Data.Text.Lazy.Builder           (toLazyText)
-import           Data.Vector.Unboxed              (Unbox, Vector)
+import           Data.Monoid                        ((<>))
+import           Data.Text                          (Text)
+import           Data.Text.Lazy.Builder             (toLazyText)
+import           Data.Vector.Unboxed                (Unbox, Vector)
+import           Data.Word                          (Word32, Word8)
 
 import           Data.Text.Lazy.Builder.Int
 import           Data.Text.Lazy.Builder.RealFloat
@@ -20,72 +23,85 @@ import           Hammer.Math.Algebra
 
 -- =======================================================================================
 
+data VTKNumType
+  = VTK_UInt8
+  | VTK_UInt
+  | VTK_Int
+  | VTK_Float
+  deriving (Show, Eq)
+
+renderNumType :: VTKNumType -> String
+renderNumType x = case x of
+  VTK_UInt8 -> "UInt8"
+  VTK_UInt  -> "UInt32"
+  VTK_Int   -> "Int32"
+  _         -> "Float64"
+
 class RenderPoint point where
   renderPoint       :: point -> BB.Builder
   renderBinaryPoint :: point -> BB.Builder
+  pointNumberType   :: point -> VTKNumType
+  pointNumberComp   :: point -> Word8
 
 class (RenderPoint a, Unbox a)=> RenderElemVTK a
 
+instance RenderElemVTK Word8
+instance RenderElemVTK Word32
 instance RenderElemVTK Int
 instance RenderElemVTK Double
 instance RenderElemVTK Vec3
 instance RenderElemVTK Vec2
 instance RenderElemVTK Mat3
+instance (RenderElemVTK a)=> RenderElemVTK (a, a, a)
 
 class RenderCell shape where
   makeCell :: shape -> Vector Int
   getType  :: shape -> CellType
 
--- | This class defines how to create and render attributes.
-class RenderAttr attr where
-  -- | This function creates an attribute of type 'attr' for each cell.
-  -- It is itself a function that is given to render, where:
-  --
-  -- * Int      : is the position in the cell list
-  --
-  -- * Vector a : is the list of point the cell
-  --
-  -- * CellType : is the type of the cell
-  --
-  -- > let attr = mkCellAttr "color" (\i x cellType -> (Vec3 1 1 1) &*
-  --   1/(evalCellType cellType))
-  --
-  mkCellAttr  :: String -> (Int -> Vector a -> CellType -> attr) -> VTKAttrCell a
+-- | This function creates an attribute of type 'attr' for each cell.
+-- It is itself a function that is given to render, where:
+--
+-- * Int      : is the position in the cell list
+--
+-- * Vector a : is the list of point the cell
+--
+-- * CellType : is the type of the cell
+--
+-- > let attr = mkCellAttr "color" (\i x cellType -> (Vec3 1 1 1) &* 1/(evalCellType cellType))
+--
+mkCellAttr :: (RenderElemVTK attr)=> String
+           -> (Int -> Vector a -> CellType -> attr) -> VTKAttrCell a
+mkCellAttr = VTKAttrCell
 
-  -- | This function creates an attribute of type 'attr' for each point.
-  -- It is itself a function that is given to render, where:
-  --
-  -- * Int : is the position in the point list
-  --
-  -- * a   : is the value of the point
-  --
-  -- > let attr = mkCellAttr "grainID" (\i x -> grainIDTable!i)
-  --
-  mkPointAttr :: String -> (Int -> a -> attr) -> VTKAttrPoint a
+-- | This function creates an attribute of type 'attr' for each point.
+-- It is itself a function that is given to render, where:
+--
+-- * Int : is the position in the point list
+--
+-- * a   : is the value of the point
+--
+-- > let attr = mkCellAttr "grainID" (\i x -> grainIDTable!i)
+--
+mkPointAttr :: (RenderElemVTK attr)=> String -> (Int -> a -> attr) -> VTKAttrPoint a
+mkPointAttr = VTKAttrPoint
 
-type MultiPieceVTK a =  Vector (VTK a)
+data VTKAttrPoint a = forall attr. (RenderElemVTK attr)=>
+                      VTKAttrPoint String (Int -> a -> attr)
 
-newtype AttrPoint a attr = AttrPoint (Int -> a -> attr)
-newtype AttrCell  a attr = AttrCell  (Int -> Vector a -> CellType -> attr)
+data VTKAttrCell  a = forall attr. (RenderElemVTK attr)=>
+                      VTKAttrCell  String (Int -> Vector a -> CellType -> attr)
 
-type VTKAttrPoint a = VTKAttr (AttrPoint a)
-type VTKAttrCell  a = VTKAttr (AttrCell  a)
+type MultiPieceVTK a = Vector (VTK a)
 
 data (RenderElemVTK a)=> VTK a = VTK
   { name      :: Text
-  , isBinary  :: Bool
   , dataSet   :: VTKDataSet a
   , pointData :: [VTKAttrPoint a]
-  , cellData  :: [VTKAttrCell  a]
+  , cellData  :: [VTKAttrCell a]
   }
 
 instance (Show a, RenderElemVTK a)=> Show (VTK a) where
-  show (VTK{..}) = concat [show name, " ", show isBinary, " ", show dataSet]
-
-data VTKAttr a  = IDData     String (a Int)
-                | ScalarData String (a Double)
-                | VectorData String (a Vec3)
-                | TensorData String (a Mat3)
+  show (VTK{..}) = concat [show name, " ", " ", show dataSet]
 
 data VTKDataSet a =
     StructPoint
@@ -162,40 +178,73 @@ evalCellType x = case x of
   VTK_QUADRATIC_TETRA      -> 24
   VTK_QUADRATIC_HEXAHEDRON -> 25
 
+-- ================================= Instances RenderPoint ===============================
+
 instance RenderPoint Mat3 where
   renderPoint (Mat3 x y z) =
     renderPoint x <>
     renderPoint y <>
     renderPoint z
-
   renderBinaryPoint (Mat3 x y z) =
     renderBinaryPoint x <>
     renderBinaryPoint y <>
     renderBinaryPoint z
+  pointNumberType = const VTK_Float
+  pointNumberComp = const 9
 
+instance (RenderPoint a)=> RenderPoint (a, a, a) where
+  renderPoint (x, y, z) =
+    renderPoint x <>
+    renderPoint y <>
+    renderPoint z
+  renderBinaryPoint (x, y, z) =
+    renderBinaryPoint x <>
+    renderBinaryPoint y <>
+    renderBinaryPoint z
+  pointNumberType (x, _, _) = pointNumberType x
+  pointNumberComp           = const 3
 
 instance RenderPoint Vec3 where
   renderPoint (Vec3 x y z) =
     renderPoint x <>
     renderPoint y <>
     renderPoint z
-
   renderBinaryPoint (Vec3 x y z) =
     renderBinaryPoint x <>
     renderBinaryPoint y <>
     renderBinaryPoint z
+  pointNumberType = const VTK_Float
+  pointNumberComp = const 3
 
 instance RenderPoint Vec2 where
   renderPoint (Vec2 x y)       = renderPoint x <> renderPoint y
   renderBinaryPoint (Vec2 x y) = renderBinaryPoint x <> renderBinaryPoint y
+  pointNumberType              = const VTK_Float
+  pointNumberComp              = const 2
 
 instance RenderPoint Double where
   renderPoint       = (<> BB.char8 ' ') . renderDouble
   renderBinaryPoint = BB.doubleLE
+  pointNumberType   = const VTK_Float
+  pointNumberComp   = const 1
 
 instance RenderPoint Int where
-  renderPoint       = (<> BB.char8 ' ') . renderInt
+  renderPoint       = (<> BB.char8 ' ') . BBA.intDec
   renderBinaryPoint = BB.int32LE . fromIntegral
+  pointNumberType   = const VTK_Int
+  pointNumberComp   = const 1
+
+instance RenderPoint Word32 where
+  renderPoint       = (<> BB.char8 ' ') . BBA.word32Dec
+  renderBinaryPoint = BB.word32LE
+  pointNumberType   = const VTK_UInt
+  pointNumberComp   = const 1
+
+instance RenderPoint Word8 where
+  renderPoint       = (<> BB.char8 ' ') . BBA.word8Dec
+  renderBinaryPoint = BB.word8
+  pointNumberType   = const VTK_UInt8
+  pointNumberComp   = const 1
 
 renderInt :: Int -> BB.Builder
 renderInt = BB.lazyByteString . TE.encodeUtf8 . toLazyText . decimal
@@ -205,22 +254,3 @@ renderDouble = renderF 4
 
 renderF :: (RealFloat a)=> Int -> a -> BB.Builder
 renderF n = BB.lazyByteString . TE.encodeUtf8 . toLazyText . formatRealFloat Fixed (Just n)
-
-
-
-
-instance RenderAttr Double where
-  mkCellAttr  n func = ScalarData n (AttrCell  func)
-  mkPointAttr n func = ScalarData n (AttrPoint func)
-
-instance RenderAttr Int where
-  mkCellAttr  n func = IDData n (AttrCell  func)
-  mkPointAttr n func = IDData n (AttrPoint func)
-
-instance RenderAttr Vec3 where
-  mkCellAttr  n func   = VectorData n (AttrCell  func)
-  mkPointAttr n func   = VectorData n (AttrPoint func)
-
-instance RenderAttr Mat3 where
-  mkCellAttr  n func   = TensorData n (AttrCell func)
-  mkPointAttr n func   = TensorData n (AttrPoint func)

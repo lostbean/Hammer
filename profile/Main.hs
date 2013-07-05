@@ -92,7 +92,7 @@ profile_VTKRender fout = let
   vec   = V.replicate (100*100*100) (2::Int)
   vtk   = renderVoxBoxVTK vbox attrs
   attrs = [mkCellAttr "GrainID" (\a _ _ -> 1 :: Int)]
-  in writeUniVTKfile (fout ++ ".vtr") vtk
+  in writeUniVTKfile (fout ++ ".vtr") True vtk
 
 profile_GrainFinder fout = let
   dx = 100
@@ -109,7 +109,7 @@ profile_GrainFinder fout = let
         vec   = V.map unGrainID $ grainID vbox
         vtk   = renderVoxBoxVTK vbox attrs
         attrs = [mkCellAttr "GrainID" (\a _ _ -> vec V.! a)]
-      writeUniVTKfile (fout ++ ".vtr") vtk
+      writeUniVTKfile (fout ++ ".vtr") True vtk
     _ -> putStrLn "Unable to find grains."
  
 test_GrainFinder fout = case getMicroVoxel vboxTest of
@@ -119,10 +119,10 @@ test_GrainFinder fout = case getMicroVoxel vboxTest of
     vtk   = renderVoxBoxVTK vboxTest attrs
     attrs = [mkCellAttr "GrainID" (\a _ _ -> unGrainID $ vec V.! a)]
     in do
-      writeUniVTKfile (fout ++ ".vtr") vtk
-      writeUniVTKfile (fout ++ "_faces.vtu") $ renderMicroFacesVTK   vboxTest micro
-      writeUniVTKfile (fout ++ "_edges.vtu") $ renderMicroEdgesVTK   vboxTest micro
-      writeUniVTKfile (fout ++ "_vertex.vtu") $ renderMicroVertexVTK vboxTest micro
+      writeUniVTKfile (fout ++ ".vtr")        True   vtk
+      writeUniVTKfile (fout ++ "_faces.vtu")  True $ renderMicroFacesVTK   vboxTest micro
+      writeUniVTKfile (fout ++ "_edges.vtu")  True $ renderMicroEdgesVTK   vboxTest micro
+      writeUniVTKfile (fout ++ "_vertex.vtu") True $ renderMicroVertexVTK vboxTest micro
 
 vboxTest = VoxBox { dimension = mkStdVoxBoxRange (VoxBoxDim 21   15   5)
                   , origin    = VoxBoxOrigin  0    0    0
