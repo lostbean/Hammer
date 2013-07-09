@@ -114,7 +114,7 @@ buildMicroVoxel eset fset mv (p, pid) = let
                       , (func eYp, eYpF), (func eYm, eYmF)
                       , (func eZp, eZpF), (func eZm, eZmF)]
 
-  in insertNewVertex const pid p es mv'
+  in insertNewVertex pid p es mv'
 
 getFaces :: VoxBox GrainID -> V.Vector VoxelPos -> FaceElems
 getFaces vbox@VoxBox{..} = V.foldl' go []

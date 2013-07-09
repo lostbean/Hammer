@@ -6,50 +6,48 @@
 {-# LANGUAGE RecordWildCards       #-}
 
 module Hammer.MicroGraph.Types
-  ( GrainID
-  , FaceID
-  , EdgeID
-  , VertexID
-    
-  , mkGrainID
-  , mkFaceID
-  , mkVertexID
-    
-  , mkFaceID'
-  , mkEdgeID'
-  , mkVertexID'
+       ( GrainID
+       , FaceID
+       , EdgeID
+       , VertexID
 
-  , mkMultiVertexID
-    
-  , mkMultiEdgeID'
-  , mkMultiVertexID'
-    
-  , getAlterFaceID
-  , getAlterEdgeID
-  , getAlterVertexID
-    
-  , unGrainID
-  , unFaceID
-  , unEdgeID
-  , unVertexID
+       , mkGrainID
+       , mkFaceID
+       , mkVertexID
 
-  , MicroEdge      (..)
-  , GrainProp      (..)
-  , FaceProp       (..)
-  , EdgeProp       (..)
-  , VertexProp     (..)
-  , MicroGraph     (..)
-  , GrainHierarchy (..)
-  , UpdateLevel    (..) 
-  , HasPropValue   (..)
-  , HasPropConn    (..)
+       , mkFaceID'
+       , mkEdgeID'
+       , mkVertexID'
 
-  , insertUniqueHM
-  , alterHM 
+       , mkMultiVertexID
 
-  ) where
+       , mkMultiEdgeID'
+       , mkMultiVertexID'
 
--- External modules
+       , getAlterFaceID
+       , getAlterEdgeID
+       , getAlterVertexID
+
+       , unGrainID
+       , unFaceID
+       , unEdgeID
+       , unVertexID
+
+       , MicroEdge      (..)
+       , GrainProp      (..)
+       , FaceProp       (..)
+       , EdgeProp       (..)
+       , VertexProp     (..)
+       , MicroGraph     (..)
+       , GrainHierarchy (..)
+       , HasPropValue   (..)
+       , HasPropConn    (..)
+
+       , insertUniqueHM
+       , alterHM
+
+       ) where
+
 import qualified Data.List           as L
 import qualified Data.IntSet         as IS
 import qualified Data.Set            as S
@@ -61,15 +59,13 @@ import           Data.HashSet        (HashSet)
 import           Data.Hashable       (Hashable, hashWithSalt)
 import           Data.IntSet         (IntSet)
 import           Data.Set            (Set)
-import           Control.Monad       (liftM)
-import           Data.Maybe          (isJust)
 
 --import           Debug.Trace
 
--- ==========================================================================================
+-- =======================================================================================
 
 newtype GrainID = GrainID Int deriving (Show, Eq, Ord)
-                                        
+
 data FaceID
   = FaceID
     {-# UNPACK #-} !GrainID
@@ -79,7 +75,7 @@ data FaceID
     {-# UNPACK #-} !GrainID
     {-# UNPACK #-} !GrainID
   deriving (Show, Eq)
-                       
+
 data EdgeID
   = EdgeID
     !FaceID
@@ -104,38 +100,38 @@ data VertexID
   | AlterVertexID {-# UNPACK #-} !Int IntSet
   deriving (Show, Eq)
 
-mkGrainID :: Int -> GrainID 
+mkGrainID :: Int -> GrainID
 mkGrainID = GrainID
 
-mkFaceID :: (Int, Int) -> FaceID 
+mkFaceID :: (Int, Int) -> FaceID
 mkFaceID = let
   func (a, b) = FaceID (GrainID a) (GrainID b)
   in func . fast2DSort
-    
-mkVertexID :: (Int, Int, Int, Int) -> VertexID 
+
+mkVertexID :: (Int, Int, Int, Int) -> VertexID
 mkVertexID = let
   func (a, b, c, d) = VertexID (GrainID a) (GrainID b) (GrainID c) (GrainID d)
   in func . fast4DSort
 
-mkMultiVertexID :: [Int] -> Maybe VertexID 
-mkMultiVertexID = mkMultiVertexID' . map GrainID 
+mkMultiVertexID :: [Int] -> Maybe VertexID
+mkMultiVertexID = mkMultiVertexID' . map GrainID
 
 
-mkFaceID' :: (GrainID, GrainID) -> FaceID 
+mkFaceID' :: (GrainID, GrainID) -> FaceID
 mkFaceID' = (\(a,b) -> FaceID  a b) . fast2DSort
 
-mkEdgeID' :: (FaceID, FaceID, FaceID) -> EdgeID 
+mkEdgeID' :: (FaceID, FaceID, FaceID) -> EdgeID
 mkEdgeID' = (\(a,b,c) -> EdgeID a b c) . fast3DSort
 
-mkVertexID' :: (GrainID, GrainID, GrainID, GrainID) -> VertexID 
+mkVertexID' :: (GrainID, GrainID, GrainID, GrainID) -> VertexID
 mkVertexID' = (\(a,b,c,d) -> VertexID a b c d) . fast4DSort
 
-mkMultiEdgeID' :: [FaceID] -> Maybe EdgeID 
+mkMultiEdgeID' :: [FaceID] -> Maybe EdgeID
 mkMultiEdgeID' [a,b,c]        = return $ mkEdgeID' (a, b, c)
 mkMultiEdgeID' xs@(_:_:_:_:_) = return . MultiEdgeID $ S.fromList xs
 mkMultiEdgeID' _              = Nothing
-    
-mkMultiVertexID' :: [GrainID] -> Maybe VertexID 
+
+mkMultiVertexID' :: [GrainID] -> Maybe VertexID
 mkMultiVertexID' [a,b,c,d]      = return $ mkVertexID' (a, b, c, d)
 mkMultiVertexID' xs@(_:_:_:_:_) = return . MultiVertexID . IS.fromList $ map unGrainID xs
 mkMultiVertexID' _              = Nothing
@@ -157,14 +153,14 @@ getAlterVertexID (VertexID a b c d) = let
   in AlterVertexID 666 s
 getAlterVertexID (MultiVertexID    s) = AlterVertexID 666    s
 getAlterVertexID (AlterVertexID is s) = AlterVertexID (is+1) s
- 
+
 
 unGrainID :: GrainID -> Int
 unGrainID (GrainID x) = x
 
 unFaceID :: FaceID -> (Int, Int)
-unFaceID (FaceID        a b) = (unGrainID a, unGrainID b) 
-unFaceID (AlterFaceID _ a b) = (unGrainID a, unGrainID b) 
+unFaceID (FaceID        a b) = (unGrainID a, unGrainID b)
+unFaceID (AlterFaceID _ a b) = (unGrainID a, unGrainID b)
 
 unEdgeID :: EdgeID -> Either (FaceID, FaceID, FaceID) (Set FaceID)
 unEdgeID (EdgeID    a b c)      = Left (a, b, c)
@@ -209,30 +205,30 @@ instance Hashable EdgeID where
   hashWithSalt i (EdgeID  a b c) = hashWithSalt i (a,b,c)
   hashWithSalt i (MultiEdgeID s) = let
     salt = i `hashWithSalt` (332 :: Int)
-    in S.foldl' hashWithSalt salt s 
+    in S.foldl' hashWithSalt salt s
   hashWithSalt i (AlterEdgeID is a b c) = let
     salt = i `hashWithSalt` is
-    in hashWithSalt salt (a,b,c) 
+    in hashWithSalt salt (a,b,c)
   hashWithSalt i (AlterMultiEdgeID is s) = let
     salt = i `hashWithSalt` is
-    in S.foldl' hashWithSalt salt s 
+    in S.foldl' hashWithSalt salt s
 
 instance Hashable VertexID where
   hashWithSalt i (VertexID a b c d) = hashWithSalt i (a,b,c,d)
   hashWithSalt i (MultiVertexID  s) = let
     salt = i `hashWithSalt` (665 :: Int)
-    in IS.foldl' hashWithSalt salt s 
+    in IS.foldl' hashWithSalt salt s
   hashWithSalt i (AlterVertexID is s) = let
     salt = i `hashWithSalt` is
-    in IS.foldl' hashWithSalt salt s 
+    in IS.foldl' hashWithSalt salt s
 
-  
+
 instance Ord FaceID where
   compare (AlterFaceID ai a1 a2) (AlterFaceID bi b1 b2) =
     case compare ai bi of
       EQ -> comp2DSort a1 a2 b1 b2
       x  -> x
-  compare (AlterFaceID _ _ _) (FaceID _ _)        = GT 
+  compare (AlterFaceID _ _ _) (FaceID _ _)        = GT
   compare (FaceID _ _)        (AlterFaceID _ _ _) = LT
   compare (FaceID a1 a2)      (FaceID b1 b2)      = comp2DSort a1 a2 b1 b2
 
@@ -280,18 +276,18 @@ fast2DSort v@(a, b)
 testFast3 :: (Ord a)=> (a,a,a) -> Bool
 testFast3 t@(x,y,z) = let
   unlist [a,b,c] = (a,b,c)
-  unlist _       = error "[GrainsGraph] Oops! List size different than 3" 
+  unlist _       = error "[GrainsGraph] Oops! List size different than 3"
   func = all ((== fast3DSort t) . fast3DSort . unlist)
   in func $ L.permutations [x,y,z]
 
 testFast4 :: (Ord a)=> (a,a,a,a) -> Bool
 testFast4 t@(x,y,z,w) = let
   unlist [a,b,c,d] = (a,b,c,d)
-  unlist _       = error "[GrainsGraph] Oops! List size different than 3" 
-  func = all ((== fast4DSort t) . fast4DSort . unlist) 
+  unlist _       = error "[GrainsGraph] Oops! List size different than 3"
+  func = all ((== fast4DSort t) . fast4DSort . unlist)
   in func $ L.permutations [x,y,z,w]
 
--- ===================================== Graph data types ==================================
+-- =================================== Graph data types ==================================
 
 -- | Define the concept of edge (triple line in 3D microstructure or grain boundary in 2D)
 data MicroEdge
@@ -305,17 +301,17 @@ data VertexProp a
   = VertexProp a
   | NullVertexProp
   deriving (Show)
-                           
+
 data EdgeProp   a
   = EdgeProp     MicroEdge a
   | NullEdgeProp MicroEdge
   deriving (Show)
-                           
+
 data FaceProp   a
   = FaceProp     (HashSet EdgeID) a
   | NullFaceProp (HashSet EdgeID)
   deriving (Show)
-                           
+
 data GrainProp  a
   = GrainProp     (HashSet FaceID) a
   | NullGrainProp (HashSet FaceID)
@@ -330,7 +326,7 @@ data MicroGraph g f e v = MicroGraph
   , microVertex :: HashMap VertexID (VertexProp v)
   } deriving (Show)
 
---  ---------------------------------- GrainHierarchy Class ---------------------------------
+--  ---------------------------------- GrainHierarchy Class ------------------------------
 
 -- | Class defining the bottom-up relation for a microstructure graph,
 -- i.e from the Level Vertex to the SubLevel Edge. The basic idea here, is
@@ -342,47 +338,44 @@ class (Hashable (SubLevel l), Eq (SubLevel l))=> GrainHierarchy l where
   -- | The function 'updateSubLevelProp' updates a 'SubLevelProp l a' based on
   -- by updating their reference to the level 'l'
   updateSubLevelProp  :: l -> Maybe (SubLevelProp l a) -> Maybe (SubLevelProp l a)
-  
-  {--
-  -- | Auto generate connections form level l to the SubLevel l e.g. EdgeID 1 2 3 is
-  -- connected to faces FaceID 1 2, Face 2 3 and Face 1 3. It doesn't work well for
-  -- voxelized data due quadruple juction and triple line overlaping.
-  --generateSubLevelConn :: l -> [SubLevel l]
-  --}
-  
---  -------------------------------- UpdateLevel Class --------------------------------------
 
-class UpdateLevel l where
-  updateLevelProp :: a -> (a -> a -> a) -> Maybe (l a) -> Maybe (l a)
+--  -------------------------------- HasPropValue Class ----------------------------------
 
---  -------------------------------- HasPropValue Class -------------------------------------
-
+-- | This class defines property values manipulation.
 class HasPropValue prop where
-  hasPropValue :: prop v -> Bool
-  getPropValue :: prop v -> Maybe v
-  setPropValue :: prop v -> v1 -> prop v1
+  hasPropValue    :: prop v -> Bool
+  getPropValue    :: prop v -> Maybe v
+  -- | Creates a new property with /no/ connections.
+  newPropValue    :: v -> prop v
+  -- | Set a property value and discard the old value.
+  setPropValue    :: prop v -> v1 -> prop v1
+  -- | Adjust a property value by combining the old value with a new value.
+  adjustPropValue :: (v -> v1 -> v1) -> v1 -> prop v -> prop v1
+  -- | Adjusts if it receives a property ('Just') otherwise creates a new property without
+  -- connections.
+  updatePropValue :: (v -> v1 -> v1) -> v1 -> Maybe (prop v) -> prop v1
+  updatePropValue func v = maybe (newPropValue v) (adjustPropValue func v)
 
---  -------------------------------- HasPropConn Class --------------------------------------
+--  -------------------------------- HasPropConn Class -----------------------------------
 
 class (HasPropValue prop)=> HasPropConn prop where
   type PropConn prop :: *
   getPropConn        :: prop v -> Maybe (PropConn prop)
-  
+
   getPropBoth        :: prop v -> Maybe (v, PropConn prop)
   getPropBoth p = do
     v <- getPropValue p
     c <- getPropConn  p
     return (v, c)
 
--- ============================ HashMap Operations ============================================
-                               
-insertUniqueHM :: (Eq k, Hashable k)=> a -> k -> (k -> k) -> HashMap k a -> (k, HashMap k a) 
+-- ============================ HashMap Operations =======================================
+
+insertUniqueHM :: (Eq k, Hashable k)=> a -> k -> (k -> k) -> HashMap k a -> (k, HashMap k a)
 insertUniqueHM v k func m
   | HM.member k m = insertUniqueHM v (func k) func m
   | otherwise     = (k, HM.insert k v m)
 
-alterHM :: (Eq k, Hashable k)=> (Maybe a -> Maybe a) -> k -> HashMap k a -> HashMap k a 
+alterHM :: (Eq k, Hashable k)=> (Maybe a -> Maybe a) -> k -> HashMap k a -> HashMap k a
 alterHM f k m = case f $ HM.lookup k m of
   Just x -> HM.insert k x m
   _      -> HM.delete k m
-

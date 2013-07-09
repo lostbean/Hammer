@@ -156,8 +156,7 @@ Library
                     Hammer.Render.VTK.Types
 
                     Hammer.MicroGraph.Types
-                    Hammer.MicroGraph.GrainGraphReader
-                    Hammer.MicroGraph.GrainGraphBuilder
+                    Hammer.MicroGraph.Base
 
                     Hammer.VoxBox.VoxConnTypes
                     Hammer.VoxBox.Types
