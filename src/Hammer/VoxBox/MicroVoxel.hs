@@ -5,18 +5,18 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
 module Hammer.VoxBox.MicroVoxel
-  ( MicroVoxel
-  , getMicroVoxel
-  , benchmarkMicroVoxel
-  ) where
+       ( MicroVoxel
+       , getMicroVoxel
+       , benchmarkMicroVoxel
+       ) where
 
 import qualified Data.HashMap.Strict         as HM
 import qualified Data.HashSet                as HS
 import qualified Data.IntMap                 as IM
 import qualified Data.Vector.Unboxed         as U
 import qualified Data.Vector                 as V
-import qualified Hammer.Math.SparseMatrix    as SP 
-  
+import qualified Hammer.Math.SparseMatrix    as SP
+
 import           Data.HashMap.Strict      (HashMap)
 import           Data.IntMap              (IntMap)
 import           Data.Maybe               (catMaybes, mapMaybe)
@@ -25,7 +25,7 @@ import           Hammer.Math.SparseMatrix (Sparse3)
 
 import           Data.List
 import           Criterion
-  
+
 import           Hammer.MicroGraph
 import           Hammer.VoxBox.Base
 import           Hammer.VoxBox.VoxConnFinder
@@ -33,7 +33,7 @@ import           Hammer.VoxBox.VoxConnFinder
 import           Debug.Trace
 --dbg a = trace ("::::::>> " ++ show a) a
 
--- ================================ Find Microstruture Graph ================================
+-- ================================ Find Microstruture Graph =============================
 
 type MicroVoxel = MicroGraph
                   (Vector VoxelPos)
@@ -52,14 +52,14 @@ getMicroVoxel vbox = fmap go (grainFinder vbox)
     vbr     = dimension vbox
     allPosV = V.fromList $ getRangePos vbr
 
-    felems  = getFaces vboxGID allPosV 
+    felems  = getFaces vboxGID allPosV
     faceSet = groupFaces vbr felems
 
     eelems  = getEdges faceSet allPosV
     edgeSet = groupEdges vbr eelems
 
     velems  = getVertex vboxGID edgeSet allPosV
-  
+
     func (k,v) = (mkGrainID k, GrainProp HS.empty v)
     hmf = HM.map (FaceProp HS.empty . V.map toFaceVoxelPos) (snd faceSet)
     hme = HM.map (EdgeProp DummyEdge . V.map toEdgeVoxelPos) (snd edgeSet)
@@ -100,7 +100,7 @@ buildMicroVoxel eset fset mv (p, pid) = let
 
   eXpF = mapMaybe foo [fXYpp, fXYpm, fXZpp, fXZpm]
   eXmF = mapMaybe foo [fXYmp, fXYmm, fXZmp, fXZmm]
-  
+
   eYpF = mapMaybe foo [fXYpp, fXYmp, fYZpp, fYZpm]
   eYmF = mapMaybe foo [fXYpm, fXYmm, fYZmp, fYZmm]
 
@@ -134,14 +134,14 @@ getFaces vbox@VoxBox{..} = V.foldl' go []
 
     foo (Just f, func) = return (func pos, f)
     foo _              = Nothing
- 
+
     fs = mapMaybe foo    [(fx, Fx), (fy, Fy), (fz, Fz)]
     in fs ++ acc
 
 getEdges :: FaceSet -> V.Vector VoxelPos -> EdgeElems
 getEdges (hmFID, _) = V.foldl' go []
   where
-  go acc pos = let 
+  go acc pos = let
     v    = pos
     vx   = pos #+# (VoxelPos (-1)   0    0 )
     vy   = pos #+# (VoxelPos   0  (-1)   0 )
@@ -160,21 +160,21 @@ getEdges (hmFID, _) = V.foldl' go []
     fz   = foo $ Fz v
     fzx  = foo $ Fz vx
     fzy  = foo $ Fz vy
-  
-    ex = checkEgde fy fyz fz fzy 
+
+    ex = checkEgde fy fyz fz fzy
     ey = checkEgde fx fxz fz fzx
     ez = checkEgde fx fxy fy fyx
-  
+
     fooFst (Just e, func) = return (func pos, fst e)
     fooFst _              = Nothing
-  
+
     es = mapMaybe fooFst [(ex, Ex), (ey, Ey), (ez, Ez)]
 
     in es ++ acc
-     
+
 getVertex :: VoxBox GrainID -> EdgeSet -> V.Vector VoxelPos -> VertexElems
 getVertex vbox@VoxBox{..} (hmEID, _) = let
-  go acc pos = let 
+  go acc pos = let
     v    = pos
     vx   = pos #+# (VoxelPos (-1)   0    0 )
     vy   = pos #+# (VoxelPos   0  (-1)   0 )
@@ -183,7 +183,7 @@ getVertex vbox@VoxBox{..} (hmEID, _) = let
     vyz  = pos #+# (VoxelPos   0  (-1) (-1))
     vzx  = pos #+# (VoxelPos (-1)   0  (-1))
     vxyz = pos #+# (VoxelPos (-1) (-1) (-1))
-  
+
     p    = vbox#!v
     px   = vbox#!vx
     py   = vbox#!vy
@@ -201,10 +201,10 @@ getVertex vbox@VoxBox{..} (hmEID, _) = let
     eym = foo $ Ey vy
     ez  = foo $ Ez v
     ezm = foo $ Ez vz
-  
+
     validEdges = catMaybes [ex, ey, ez, exm, eym, ezm]
     validNeigh = catMaybes [p, px, py, pz, pxy, pyz, pzx, pxyz]
-  
+
     in case checkVertex validNeigh validEdges of
       Just (vid, _) -> (pos, vid) : acc
       _             -> acc
@@ -219,7 +219,7 @@ checkFace _ _ = Nothing
 
 -- The function will scan the faces: AB, BC, DC and DA
 checkEgde :: Maybe FaceID -> Maybe FaceID -> Maybe FaceID
-          -> Maybe FaceID -> Maybe (EdgeID, [FaceID]) 
+          -> Maybe FaceID -> Maybe (EdgeID, [FaceID])
 checkEgde fa fb fc fd
   | nf >= 3 && nuf >= 3 = out
   | otherwise           = Nothing
@@ -242,20 +242,20 @@ checkVertex ns es
     nun  = length uns
     nue  = length ues
     -- list of unique neighbours
-    uns  = nub ns 
+    uns  = nub ns
     -- list of unique edges (avoid create vertex for touching edges)
     ues  = nub es
     getV = do
       newV <- mkMultiVertexID' uns
-      return (newV, ues)    
+      return (newV, ues)
 
 -- -------------------------- commun scan tools ---------------------------------------
-    
+
 getExtVBR :: VoxBoxRange -> VoxBoxRange
 getExtVBR vbr = let
   (dx, dy, dz) = getVoxBoxDim $ vbrDim vbr
   in vbr {vbrDim = VoxBoxDim (dx*2-1) (dy*2-1) (dz*2-1)}
-  
+
 isConnBase :: (a -> a -> b -> Bool) -> Maybe a -> Maybe a -> b -> Bool
 isConnBase f (Just a)  (Just b)  c = f a b c
 isConnBase _ _         _         _ = False
@@ -263,7 +263,7 @@ isConnBase _ _         _         _ = False
 -- -------------------------- Scan Faces ---------------------------------------
 
 type FaceSet = (HashMap FacePos FaceID, HashMap FaceID (Vector FacePos))
-               
+
 fp2spIn :: FaceVoxelPos -> (Int, Int, Int)
 fp2spIn = vp2spIn . toFacePos
 
@@ -275,13 +275,13 @@ groupFacesSP vbr fs = let
   (so, sd) = let
     VoxelPos  x0 y0 z0 = vbrOrigin vbr
     VoxBoxDim dx dy dz = vbrDim    vbr
-    in (SP.Sparse3Org (x0,y0,z0), SP.Sparse3Dim (dx,dy,dz)) 
+    in (SP.Sparse3Org (x0,y0,z0), SP.Sparse3Dim (dx,dy,dz))
 
   hmf :: Sparse3 FaceID
   hmf = SP.mkSparse3 so sd . V.map (\(!k, !v) -> (fp2spIn k, v)) $ V.fromList fs
 
   faces :: VoxConn Sparse3 FacePos
-  faces = finderVoxConn hmf vbrf 
+  faces = finderVoxConn hmf vbrf
 
   foo acc@(accPOS, accFID) k v = case SP.lookup (vp2spIn $ vbrf %# k) hmf of
     Just fid -> let
@@ -289,7 +289,7 @@ groupFacesSP vbr fs = let
       (finalFID, newAccFID) = insertUniqueHM v fid getAlterFaceID accFID
       in (newAccPOS, newAccFID)
     _        -> acc
-      
+
   vbrf    = getExtVBR vbr
   zeroSet = (HM.empty, HM.empty)
   -- (HashMap Int (Vector grid))
@@ -304,7 +304,7 @@ groupFaces vbr fs = let
   hmf = HM.fromList $ map (\(!k, !v) -> let f = toFacePos k in f `seq` (f , v)) fs
 
   faces :: VoxConn (HashMap VoxelPos) FacePos
-  faces = finderVoxConn hmf vbrf 
+  faces = finderVoxConn hmf vbrf
 
   foo acc@(accPOS, accFID) k v = case HM.lookup (vbrf %# k) hmf of
     Just fid -> let
@@ -312,7 +312,7 @@ groupFaces vbr fs = let
       (finalFID, newAccFID) = insertUniqueHM v fid getAlterFaceID accFID
       in (newAccPOS, newAccFID)
     _        -> acc
-      
+
   vbrf    = getExtVBR vbr
   zeroSet = (HM.empty, HM.empty)
   -- (HashMap Int (Vector grid))
@@ -337,7 +337,7 @@ instance HasConn FaceID where
   {-# INLINE isConn #-}
   {-# INLINE isCrossConn #-}
 
--- | Trick function 
+-- | Trick function
 getConnFacePos :: CartesianDir -> FacePos -> Maybe (FacePos, FacePos)
 getConnFacePos dir p@(FacePos vp) = let
   add2p = FacePos . (vp #+#)
@@ -346,7 +346,7 @@ getConnFacePos dir p@(FacePos vp) = let
   pz = add2p $ VoxelPos 0 0 1
   in case dir of
     XDir
-      | (isFaceY p  || isFaceZ p ) -> return $ (p, add2p $ VoxelPos 2 0 0) 
+      | (isFaceY p  || isFaceZ p ) -> return $ (p, add2p $ VoxelPos 2 0 0)
       | (isFaceY px || isFaceZ px) -> return $ (add2p $ VoxelPos (-1) 0 0, px)
       | otherwise -> Nothing
     YDir
@@ -390,7 +390,7 @@ groupEdges vbr es = let
   hme   = HM.fromList $ map (\(k,v) -> (toEdgePos k, v)) es
 
   edges :: VoxConn (HashMap VoxelPos) EdgePos
-  edges = finderVoxConn hme vbre 
+  edges = finderVoxConn hme vbre
 
   foo acc@(accPOS, accEID) k v = case HM.lookup (vbre %# k) hme of
     Just fid -> let
@@ -398,7 +398,7 @@ groupEdges vbr es = let
       (finalFID, newAccEID) = insertUniqueHM v fid getAlterEdgeID accEID
       in (newAccPOS, newAccEID)
     _        -> acc
-      
+
   vbre    = getExtVBR vbr
   zeroSet = (HM.empty, HM.empty)
   -- (HashMap Int (Vector grid))
@@ -422,7 +422,7 @@ instance HasConn EdgeID where
   {-# INLINABLE isConn #-}
   {-# INLINABLE isCrossConn #-}
 
--- | Trick function 
+-- | Trick function
 getConnEdgePos :: CartesianDir -> EdgePos -> Maybe (EdgePos, EdgePos)
 getConnEdgePos dir p@(EdgePos vp) = let
   add2p = EdgePos . (vp #+#)
@@ -431,7 +431,7 @@ getConnEdgePos dir p@(EdgePos vp) = let
   pz = add2p $ VoxelPos 0 0 1
   in case dir of
     XDir
-      | isEdgeX p  -> return $ (p, add2p $ VoxelPos 2 0 0) 
+      | isEdgeX p  -> return $ (p, add2p $ VoxelPos 2 0 0)
       | isEdgeX px -> return $ (add2p $ VoxelPos (-1) 0 0, px)
       | otherwise  -> Nothing
     YDir
@@ -469,14 +469,14 @@ isEdgeConn a b _ = let
   in foo (unEdgeID a) (unEdgeID b)
 
 -- ================================ Benchmark functions ================================
-     
+
 benchmarkMicroVoxel vboxdata = case grainFinder vboxdata of
   Just (vboxGID, grainSet) -> let
     vbr     = dimension vboxdata
     allPosV = V.fromList $ getRangePos vbr
     o1 = snd $ groupFaces   vbr felems
     o2 = snd $ groupFacesSP vbr felems
-    felems  = getFaces vboxGID allPosV 
+    felems  = getFaces vboxGID allPosV
     faceSet = groupFaces vbr felems
 
     eelems  = getEdges faceSet allPosV
