@@ -11,14 +11,14 @@ import qualified Data.Vector.Generic.Base    as G
 import qualified Data.Vector.Generic.Mutable as M
 
 import Control.DeepSeq
-import Data.Vector                     (Vector)
-import Data.Hashable                   (Hashable, hashWithSalt)
 import Control.Monad                   (liftM)
+import Data.Hashable                   (Hashable, hashWithSalt)
+import Data.Vector                     (Vector)
 
 import Foreign
 
--- ================================================================================
-                                                            
+-- =======================================================================================
+
 data VoxelPos     = VoxelPos
                     {-# UNPACK #-} !Int
                     {-# UNPACK #-} !Int
@@ -29,7 +29,7 @@ data EdgeVoxelPos = Ex {-# UNPACK #-} !VoxelPos
                   | Ey {-# UNPACK #-} !VoxelPos
                   | Ez {-# UNPACK #-} !VoxelPos
                   deriving (Show, Eq)
-                        
+
 data FaceVoxelPos = Fx {-# UNPACK #-} !VoxelPos
                   | Fy {-# UNPACK #-} !VoxelPos
                   | Fz {-# UNPACK #-} !VoxelPos
@@ -40,12 +40,12 @@ data VoxBoxOrigin = VoxBoxOrigin
                     {-# UNPACK #-} !Double
                     {-# UNPACK #-} !Double
                   deriving (Show, Eq, Ord)
-                            
+
 data VoxBoxRange  = VoxBoxRange
                     { vbrOrigin :: {-# UNPACK #-} !VoxelPos
                     , vbrDim    :: {-# UNPACK #-} !VoxBoxDim
                     } deriving (Eq, Show)
-                           
+
 -- | Dimension of voxel box where x, y and z >= 1
 data VoxBoxDim    = VoxBoxDim
                     {-# UNPACK #-} !Int
@@ -62,7 +62,7 @@ data VoxelDim     = VoxelDim
 data VoxBox a     = VoxBox
                     { dimension :: VoxBoxRange
                     , origin    :: VoxBoxOrigin
-                    , spacing   :: VoxelDim 
+                    , spacing   :: VoxelDim
                     , grainID   :: Vector a
                     } deriving (Show)
 
@@ -77,37 +77,38 @@ type VID = Int  -- Voxel's serial position
 
 newtype WallBoxRange = WallBoxRange VoxBoxRange deriving (Show, Eq)
 
--- ---------------------------- Hashable instances ------------------------------
-           
+-- -------------------------------- Hashable instances -----------------------------------
+
 instance Hashable VoxelPos where
   hashWithSalt i (VoxelPos a b c) = hashWithSalt i (a,b,c)
 
--- ---------------------------- DeepSeq instances -------------------------------
-           
+-- ---------------------------------- DeepSeq instances ----------------------------------
+
 instance NFData VoxelPos where
   rnf (VoxelPos x y z) = rnf x `seq` rnf y `seq` rnf z
-  
+
 instance NFData VoxBoxDim where
   rnf (VoxBoxDim dx dy dz) = rnf dx `seq` rnf dy `seq` rnf dz
 
 instance NFData VoxBoxOrigin where
   rnf (VoxBoxOrigin x0 y0 z0) = rnf x0 `seq` rnf y0 `seq` rnf z0
-  
+
 instance NFData VoxelDim where
   rnf (VoxelDim x y z) = rnf x `seq` rnf y `seq` rnf z
 
 instance NFData VoxBoxRange where
   rnf (VoxBoxRange org dimbox) = rnf org `seq` rnf dimbox
-  
-instance (NFData a)=> NFData (VoxBox a) where
-  rnf (VoxBox dimbox org sizevox vec) = rnf dimbox `seq` rnf org `seq` rnf sizevox `seq` rnf vec
 
--- ---------------------------- Storable instances -------------------------------
+instance (NFData a)=> NFData (VoxBox a) where
+  rnf (VoxBox dimbox org sizevox vec) = rnf dimbox  `seq` rnf org `seq`
+                                        rnf sizevox `seq` rnf vec
+
+-- -------------------------------- Storable instances -----------------------------------
 
 instance Storable VoxelPos where
   sizeOf _    = sizeOf (undefined :: Int) * 3
   alignment _ = alignment (undefined :: Int)
- 
+
   {-# INLINE peek #-}
   peek p = do
     a <- peekElemOff q 0
@@ -124,27 +125,29 @@ instance Storable VoxelPos where
     where
       q = castPtr p
 
--- -------------------------------------------- Faces in matrix ----------------------------------------------------
+-- --------------------------------- Faces in matrix -------------------------------------
 
-newtype FacePos = FacePos VoxelPos deriving ( Eq, Hashable, NFData
-                                            , G.Vector U.Vector, M.MVector U.MVector, U.Unbox)
+newtype FacePos =
+  FacePos VoxelPos
+  deriving ( Eq, Hashable, NFData, G.Vector U.Vector, M.MVector U.MVector, U.Unbox)
 
 instance Show FacePos where
   show (FacePos (VoxelPos x y z)) = "FacePos " ++ show x ++ " " ++ show y ++ " " ++ show z
 
--- -------------------------------------------- Edges in matrix ----------------------------------------------------
+-- -------------------------------- Edges in matrix --------------------------------------
 
-newtype EdgePos = EdgePos VoxelPos deriving ( Eq, Hashable, NFData
-                                            , G.Vector U.Vector, M.MVector U.MVector, U.Unbox)
+newtype EdgePos =
+  EdgePos VoxelPos
+  deriving ( Eq, Hashable, NFData, G.Vector U.Vector, M.MVector U.MVector, U.Unbox)
 
 instance Show EdgePos where
   show (EdgePos (VoxelPos x y z)) = "EdgePos " ++ show x ++ " " ++ show y ++ " " ++ show z
 
--- ================================================================================================================
--- ---------------------------------------------- Unbox instances -------------------------------------------------
--- ================================================================================================================
+-- =======================================================================================
+-- --------------------------------- Unbox instances -------------------------------------
+-- =======================================================================================
 
--- -------------------------------------------- Unbox VoxelPos ----------------------------------------------------
+-- ----------------------------------- Unbox VoxelPos ------------------------------------
 
 newtype instance U.MVector s VoxelPos = MV_VoxelPos (U.MVector s (Int, Int, Int))
 newtype instance U.Vector    VoxelPos = V_VoxelPos  (U.Vector    (Int, Int, Int))
@@ -193,8 +196,8 @@ instance G.Vector U.Vector VoxelPos where
                                         G.elemseq (undefined :: Vector a) z t
 
 
--- -------------------------------------------- Unbox CrossDir ----------------------------------------------------
-  
+-- ------------------------------- Unbox CrossDir ----------------------------------------
+
 newtype instance U.MVector s CrossDir = MV_CrossDir (U.MVector s Word8)
 newtype instance U.Vector    CrossDir = V_CrossDir  (U.Vector    Word8)
 
@@ -220,7 +223,7 @@ instance M.MVector U.MVector CrossDir where
   basicUnsafeRead (MV_CrossDir v) i                 = unCastCrossDir `liftM` M.basicUnsafeRead v i
   basicUnsafeWrite (MV_CrossDir v) i                = M.basicUnsafeWrite v i . castCrossDir
   basicClear (MV_CrossDir v)                        = M.basicClear v
-  basicSet (MV_CrossDir v)                          = M.basicSet v . castCrossDir 
+  basicSet (MV_CrossDir v)                          = M.basicSet v . castCrossDir
   basicUnsafeCopy (MV_CrossDir v1) (MV_CrossDir v2) = M.basicUnsafeCopy v1 v2
   basicUnsafeGrow (MV_CrossDir v) n                 = MV_CrossDir `liftM` M.basicUnsafeGrow v n
 
@@ -272,8 +275,8 @@ unCastCrossDir x
   | x == 10 = ZYplus
   | otherwise = ZYminus
 
--- -------------------------------------------- Unbox FaceVoxelPos ----------------------------------------------------
-  
+-- ------------------------------- Unbox FaceVoxelPos ------------------------------------
+
 newtype instance U.MVector s FaceVoxelPos = MV_FaceVoxelPos (U.MVector s (Word8, VoxelPos))
 newtype instance U.Vector    FaceVoxelPos = V_FaceVoxelPos  (U.Vector    (Word8, VoxelPos))
 
@@ -299,7 +302,7 @@ instance M.MVector U.MVector FaceVoxelPos where
   basicUnsafeRead (MV_FaceVoxelPos v) i                     = unCastFaceVoxelPos `liftM` M.basicUnsafeRead v i
   basicUnsafeWrite (MV_FaceVoxelPos v) i                    = M.basicUnsafeWrite v i . castFaceVoxelPos
   basicClear (MV_FaceVoxelPos v)                            = M.basicClear v
-  basicSet (MV_FaceVoxelPos v)                              = M.basicSet v . castFaceVoxelPos 
+  basicSet (MV_FaceVoxelPos v)                              = M.basicSet v . castFaceVoxelPos
   basicUnsafeCopy (MV_FaceVoxelPos v1) (MV_FaceVoxelPos v2) = M.basicUnsafeCopy v1 v2
   basicUnsafeGrow (MV_FaceVoxelPos v) n                     = MV_FaceVoxelPos `liftM` M.basicUnsafeGrow v n
 
@@ -333,8 +336,8 @@ unCastFaceVoxelPos (x, p)
   | x == 1    = Fy p
   | otherwise = Fz p
 
--- -------------------------------------------- Unbox EdgeVoxelPos ----------------------------------------------------
-  
+-- ----------------------------- Unbox EdgeVoxelPos --------------------------------------
+
 newtype instance U.MVector s EdgeVoxelPos = MV_EdgeVoxelPos (U.MVector s (Word8, VoxelPos))
 newtype instance U.Vector    EdgeVoxelPos = V_EdgeVoxelPos  (U.Vector    (Word8, VoxelPos))
 
@@ -360,7 +363,7 @@ instance M.MVector U.MVector EdgeVoxelPos where
   basicUnsafeRead (MV_EdgeVoxelPos v) i                     = unCastEdgeVoxelPos `liftM` M.basicUnsafeRead v i
   basicUnsafeWrite (MV_EdgeVoxelPos v) i                    = M.basicUnsafeWrite v i . castEdgeVoxelPos
   basicClear (MV_EdgeVoxelPos v)                            = M.basicClear v
-  basicSet (MV_EdgeVoxelPos v)                              = M.basicSet v . castEdgeVoxelPos 
+  basicSet (MV_EdgeVoxelPos v)                              = M.basicSet v . castEdgeVoxelPos
   basicUnsafeCopy (MV_EdgeVoxelPos v1) (MV_EdgeVoxelPos v2) = M.basicUnsafeCopy v1 v2
   basicUnsafeGrow (MV_EdgeVoxelPos v) n                     = MV_EdgeVoxelPos `liftM` M.basicUnsafeGrow v n
 
