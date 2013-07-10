@@ -12,13 +12,10 @@ module Hammer.VoxBox.MicroVoxel
 
 import qualified Data.HashMap.Strict         as HM
 import qualified Data.HashSet                as HS
-import qualified Data.IntMap                 as IM
-import qualified Data.Vector.Unboxed         as U
 import qualified Data.Vector                 as V
 import qualified Hammer.Math.SparseMatrix    as SP
 
 import           Data.HashMap.Strict      (HashMap)
-import           Data.IntMap              (IntMap)
 import           Data.Maybe               (catMaybes, mapMaybe)
 import           Data.Vector              (Vector)
 import           Hammer.Math.SparseMatrix (Sparse3)
@@ -221,13 +218,13 @@ checkFace _ _ = Nothing
 checkEgde :: Maybe FaceID -> Maybe FaceID -> Maybe FaceID
           -> Maybe FaceID -> Maybe (EdgeID, [FaceID])
 checkEgde fa fb fc fd
-  | nf >= 3 && nuf >= 3 = out
-  | otherwise           = Nothing
+  | nfc >= 3 && nuf >= 3 = out
+  | otherwise            = Nothing
   where
     out = do
       newE <- mkMultiEdgeID' fs
       return (newE, ufs)
-    nf  = length fs
+    nfc = length fs
     nuf = length ufs
     ufs = nub fs -- list of unique faces
     fs  = catMaybes [fa, fb, fc, fd]
@@ -470,19 +467,20 @@ isEdgeConn a b _ = let
 
 -- ================================ Benchmark functions ================================
 
+benchmarkMicroVoxel :: VoxBox Int -> [Benchmark]
 benchmarkMicroVoxel vboxdata = case grainFinder vboxdata of
-  Just (vboxGID, grainSet) -> let
+  Just (vboxGID, _) -> let
     vbr     = dimension vboxdata
     allPosV = V.fromList $ getRangePos vbr
     o1 = snd $ groupFaces   vbr felems
     o2 = snd $ groupFacesSP vbr felems
     felems  = getFaces vboxGID allPosV
-    faceSet = groupFaces vbr felems
+    --faceSet = groupFaces vbr felems
 
-    eelems  = getEdges faceSet allPosV
-    edgeSet = groupEdges vbr eelems
+    --eelems  = getEdges faceSet allPosV
+    --edgeSet = groupEdges vbr eelems
 
-    velems  = getVertex vboxGID edgeSet allPosV
+    --velems  = getVertex vboxGID edgeSet allPosV
 
     in traceShow (o1,o2) $ [ bench "grainFinder"  $ nf grainFinder vboxdata
        , bench "groupFaces"   $ nf (groupFaces vbr) felems
