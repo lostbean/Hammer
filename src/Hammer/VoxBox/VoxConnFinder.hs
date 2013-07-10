@@ -8,6 +8,7 @@
 module Hammer.VoxBox.VoxConnFinder
        ( grainFinder
        , finderVoxConn
+       , resetGrainIDs
        , VoxConn    (voxConnRange, voxConnMap, voxConnList)
        , HasConn    (..)
        , HasVoxConn (..)
@@ -17,23 +18,55 @@ module Hammer.VoxBox.VoxConnFinder
 
 import qualified Data.HashMap.Strict            as HM
 import qualified Data.Vector                    as V
-import qualified Data.Vector.Unboxed            as U
-  
+import qualified Data.Vector.Mutable            as VM
+
 import           Data.HashMap.Strict            (HashMap)
 import           Data.Vector                    (Vector)
+import           Control.Monad.ST               (ST)
 
 import           Control.DeepSeq
 import           Control.Parallel.Strategies
+import           System.Random
 
-import           Hammer.VoxBox.VoxConnTypes
-import           Hammer.MicroGraph              (GrainID, mkGrainID, FaceID, unFaceID)
+import           Hammer.MicroGraph              (GrainID, mkGrainID, unGrainID)
 import           Hammer.VoxBox.Base
-  
+import           Hammer.VoxBox.VoxConnTypes
+
 --import           Debug.Trace
 --dbg t a = trace (t ++ show a) a
 
--- ================================================================================
-  
+-- =======================================================================================
+
+-- | Shuffles a vector by random swaps where the random seed is given by the size of the
+-- input vector. Therefore, vectors with the same size will have the same shuffling pattern. 
+shuffleVec :: Vector a -> Vector a
+shuffleVec vec = V.modify shuffle vec
+  where
+    imax = V.length vec - 1
+    seed = mkStdGen imax
+    v1   = V.enumFromN 0 imax
+    shuffle :: VM.MVector s a -> ST s ()
+    shuffle mvec = let
+      func gen i = do
+        let (n, newgen) = randomR (0, imax) gen
+        VM.swap mvec i n
+        return newgen
+      in V.foldM'_ func seed v1
+
+-- | Reset and shuffle the grain IDs. It gives 'GrainID' values from @0@ to @n@, the number
+-- of grains and then shuffle it. The shuffling randomness depends on the number of grains.
+resetGrainIDs :: (VoxBox GrainID, HashMap Int (Vector VoxelPos)) ->
+                 (VoxBox GrainID, HashMap Int (Vector VoxelPos))
+resetGrainIDs (vb, hmap) = let
+  nGrains = HM.size hmap
+  shuffle = V.toList $ shuffleVec (V.enumFromN 0 nGrains)
+  gv      = HM.toList hmap
+  map1    = HM.fromList $ zipWith (\s (g,_) -> (g, s)) shuffle gv
+  map2    = HM.fromList $ zipWith (\s (_,v) -> (s, v)) shuffle gv
+  foo x   = maybe x mkGrainID (HM.lookup (unGrainID x) map1)
+  in (vb { grainID = V.map foo (grainID vb) }, map2)
+
+
 -- | Function to find grains in voxels with 'Int' property. Based on 'finderVoxConn' for
 -- 'Vector' 'Int'.
 grainFinder :: VoxBox Int -> Maybe (VoxBox GrainID, HashMap Int (Vector VoxelPos))

@@ -42,31 +42,29 @@ type FaceElems   = [(FaceVoxelPos, FaceID)]
 type EdgeElems   = [(EdgeVoxelPos, EdgeID)]
 type VertexElems = [(VoxelPos, VertexID)]
 
-getMicroVoxel :: VoxBox Int -> Maybe (MicroVoxel, VoxBox GrainID)
-getMicroVoxel vbox = fmap go (grainFinder vbox)
-  where
-  go (vboxGID, grainSet) = let
-    vbr     = dimension vbox
-    allPosV = V.fromList $ getRangePos vbr
+getMicroVoxel :: (VoxBox GrainID, HashMap Int (Vector VoxelPos)) -> (MicroVoxel, VoxBox GrainID)
+getMicroVoxel (vboxGID, grainSet) = let
+  vbr     = dimension vboxGID
+  allPosV = V.fromList $ getRangePos vbr
 
-    felems  = getFaces vboxGID allPosV
-    faceSet = groupFaces vbr felems
+  felems  = getFaces vboxGID allPosV
+  faceSet = groupFaces vbr felems
 
-    eelems  = getEdges faceSet allPosV
-    edgeSet = groupEdges vbr eelems
+  eelems  = getEdges faceSet allPosV
+  edgeSet = groupEdges vbr eelems
 
-    velems  = getVertex vboxGID edgeSet allPosV
+  velems  = getVertex vboxGID edgeSet allPosV
 
-    func (k,v) = (mkGrainID k, GrainProp HS.empty v)
-    hmf = HM.map (FaceProp HS.empty . V.map toFaceVoxelPos) (snd faceSet)
-    hme = HM.map (EdgeProp DummyEdge . V.map toEdgeVoxelPos) (snd edgeSet)
-    hmg = HM.fromList . map func $ HM.toList grainSet
+  func (k,v) = (mkGrainID k, GrainProp HS.empty v)
+  hmf = HM.map (FaceProp HS.empty . V.map toFaceVoxelPos) (snd faceSet)
+  hme = HM.map (EdgeProp DummyEdge . V.map toEdgeVoxelPos) (snd edgeSet)
+  hmg = HM.fromList . map func $ HM.toList grainSet
 
-    initMicro  = MicroGraph hmg hmf hme HM.empty
-    initMicro2 = foldl' (flip insertFaceConn) initMicro (HM.keys $ snd faceSet)
-    foo   = buildMicroVoxel edgeSet faceSet
-    micro = foldl' foo initMicro2 velems
-    in (micro, vboxGID)
+  initMicro  = MicroGraph hmg hmf hme HM.empty
+  initMicro2 = foldl' (flip insertFaceConn) initMicro (HM.keys $ snd faceSet)
+  foo   = buildMicroVoxel edgeSet faceSet
+  micro = foldl' foo initMicro2 velems
+  in (micro, vboxGID)
 
 buildMicroVoxel :: EdgeSet -> FaceSet -> MicroVoxel -> (VoxelPos, VertexID) -> MicroVoxel
 buildMicroVoxel eset fset mv (p, pid) = let
