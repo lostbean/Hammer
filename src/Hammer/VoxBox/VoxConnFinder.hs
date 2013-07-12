@@ -10,7 +10,6 @@ module Hammer.VoxBox.VoxConnFinder
        , finderVoxConn
        , resetGrainIDs
        , VoxConn    (voxConnRange, voxConnMap, voxConnList)
-       , HasConn    (..)
        , HasVoxConn (..)
        , GridConn   (..)
        , Cont       (..)
@@ -66,12 +65,12 @@ resetGrainIDs (vb, hmap) = let
   foo x   = maybe x mkGrainID (HM.lookup (unGrainID x) map1)
   in (vb { grainID = V.map foo (grainID vb) }, map2)
 
-
 -- | Function to find grains in voxels with 'Int' property. Based on 'finderVoxConn' for
 -- 'Vector' 'Int'.
-grainFinder :: VoxBox Int -> Maybe (VoxBox GrainID, HashMap Int (Vector VoxelPos))
-grainFinder vb@VoxBox{..} = let
-  found = finderVoxConn grainID dimension
+grainFinder :: (a -> a -> Bool) -> VoxBox a ->
+               Maybe (VoxBox GrainID, HashMap Int (Vector VoxelPos))
+grainFinder isEqual vb@VoxBox{..} = let
+  found = finderVoxConn isEqual grainID dimension
   in case (voxConnMap found, voxConnList found) of
     (Just m, Just l) -> let
       new_vec  = V.map mkGrainID m
@@ -84,12 +83,11 @@ grainFinder vb@VoxBox{..} = let
 -- based on a divide & conquer algorithm where the connected voxels are tested along the
 -- boarder of the divided space. The algorithm can run in a multi-core device for extra
 -- speed.
-finderVoxConn :: ( HasConn a, Cont ic a, HasVoxConn c g
-                 , NFData (c Int), NFData g, GridConn g
-                 )=> ic a -> VoxBoxRange -> VoxConn c g
-finderVoxConn vec range = force $ go range
+finderVoxConn :: ( Cont ic a, HasVoxConn c g, NFData (c Int), NFData g, GridConn g
+                 )=> (a -> a -> Bool) -> ic a -> VoxBoxRange -> VoxConn c g
+finderVoxConn isEqual vec range = force $ go range
   where
-    merge = mergeVoxConn vec range
+    merge = mergeVoxConn isEqual vec range
 
     --go :: VoxBoxRange -> Maybe (VoxConn c a)
     go boxrange = case splitInTwoBox boxrange of
@@ -107,26 +105,31 @@ finderVoxConn vec range = force $ go range
           rdeepseq b2
           return (merge b1 b2)
 
-
-tryConn :: (HasConn a, Cont c a, GridConn g
-           )=> c a -> VoxBoxRange -> CartesianDir -> g -> Vector (g, g)
-tryConn as vbr dir p = case getConnPos dir p of
-  Just connPair
-    | testConn connPair -> connPair `V.cons` filterCross
-    | otherwise         -> filterCross
-  _ -> filterCross
+-- | This function checks whether or not a given position @g@ is connected with its
+-- neighbors and returns the list of connected positions.
+tryConn :: (Cont c a, GridConn g)=> (a -> a -> Bool) -> c a ->
+           VoxBoxRange -> CartesianDir -> g -> Vector (g, g)
+tryConn isEqual as vbr dir p
+  | usesCrossDir p = testConn V.++ testCrossConn
+  | otherwise      = testConn
   where
-    {-# INLINE getter #-}
     getter = getValue as vbr . toVoxelPos
-    getter' = getValue as vbr . toVoxelPos
 
-    testConn (a,b) = isConn (getter a) (getter b) dir
+    hasconn a b = maybe False id $ do
+      pa <- getter a
+      pb <- getter b
+      return $ isEqual pa pb
 
-    filterCross = let
-      f (x, d) = isCrossConn (getter' p) (getter' x) d
-      cs       = getCrossConnPos dir p
-      in V.map (\x -> (p, fst x)) $ V.filter f cs
+    testConn = maybe V.empty V.singleton $ do
+      (a, b) <- getConnPos dir p
+      if hasconn a b
+        then return (a, b)
+        else Nothing
 
+    testCrossConn = let
+      foo = hasconn p
+      cs  = V.map fst $ getCrossConnPos dir p
+      in V.map (\x -> (p, x)) $ V.filter foo cs
 
 mixMaps :: (HasVoxConn c g, GridConn g)=> VoxConn c g -> Vector (g, g) -> VoxConn c g
 mixMaps db@VoxConn{..} conn = case (voxConnMap, voxConnList) of
@@ -135,6 +138,8 @@ mixMaps db@VoxConn{..} conn = case (voxConnMap, voxConnList) of
     in db { voxConnMap = return new_m, voxConnList = return new_l }
   _                -> db
 
+-- | This function updates the data structure for commit the connection between two
+-- positions.
 commitConn ::(HasVoxConn c g, GridConn g)
            => VoxBoxRange
            -> (c Int, HashMap Int (Vector g))
@@ -172,18 +177,22 @@ mergeDataList d1 d2 = let
   func x1 x2 = return $ HM.union x1 x2
   in mergeMaybe func (voxConnList d1) (voxConnList d2)
 
-mergeVoxConn :: (HasConn a, Cont ic a, GridConn g, HasVoxConn c g
-                )=> ic a -> VoxBoxRange -> VoxConn c g -> VoxConn c g -> VoxConn c g
-mergeVoxConn as vbr d1 d2 = case mergeVoxBoxRange (voxConnRange d1) (voxConnRange d2) of
-  Just (newBR, dir, wallbox) -> let
-    wall         = scanWall dir wallbox
-    uniGrainMap  = mergeDataMap  d1 d2
-    uniGrainList = mergeDataList d1 d2
-    wallGrid     = V.map toGridType wall
-    withConn     = V.concatMap (tryConn as vbr dir) wallGrid
-    newBD        = VoxConn newBR uniGrainMap uniGrainList
-    in mixMaps newBD withConn
-  _ -> error "[VoxConnFinder] I can't merge these two VoxBoxRange's"
+-- | Merges two neighbor boxes ('VoxConn') by connecting all valid connections along the
+-- wall formed by their interface.
+mergeVoxConn :: (Cont ic a, GridConn g, HasVoxConn c g)=>
+                (a -> a -> Bool) -> ic a -> VoxBoxRange ->
+                VoxConn c g -> VoxConn c g -> VoxConn c g
+mergeVoxConn isEqual as vbr d1 d2 =
+  case mergeVoxBoxRange (voxConnRange d1) (voxConnRange d2) of
+    Just (newBR, dir, wallbox) -> let
+      wall         = scanWall dir wallbox
+      uniGrainMap  = mergeDataMap  d1 d2
+      uniGrainList = mergeDataList d1 d2
+      wallGrid     = V.map toGridType wall
+      withConn     = V.concatMap (tryConn isEqual as vbr dir) wallGrid
+      newBD        = VoxConn newBR uniGrainMap uniGrainList
+      in mixMaps newBD withConn
+    _ -> error "[VoxConnFinder] I can't merge these two VoxBoxRange's"
 
 -- | Extract a list of all 'VoxelPos' of the lower side of a plane defined by the
 -- 'CartesianDir'. Used to scan the connections along the wall (boarder between two

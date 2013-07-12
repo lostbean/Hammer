@@ -63,7 +63,7 @@ main = execParser opts >>= run
       ( fullDesc
       <> progDesc "Test and profile hammer library."
       <> header "Hammer library" )
-       
+
 run :: Tester -> IO ()
 run Tester{..} = do
   if run_test_suit
@@ -74,16 +74,16 @@ run Tester{..} = do
 
   case run_profile_GrainFinder of
     Just x -> profile_GrainFinder x
-    _      -> putStrLn "Skiping GrainFinder profile." 
+    _      -> putStrLn "Skiping GrainFinder profile."
 
   case run_test_GrainFinder of
     Just x -> test_GrainFinder x
-    _      -> putStrLn "Skiping GrainFinder test." 
+    _      -> putStrLn "Skiping GrainFinder test."
 
   case run_profile_VTKRender of
     Just x -> profile_VTKRender x
     _      -> putStrLn "Skiping VTKRender profile."
-   
+
 profile_VTKRender fout = let
   vbox = VoxBox { dimension = mkStdVoxBoxRange (VoxBoxDim 100  100  100)
                 , origin    = VoxBoxOrigin  0    0    0
@@ -103,7 +103,7 @@ profile_GrainFinder fout = let
                    , spacing   = VoxelDim      0.25 0.25 0.25
                    , grainID   = vec }
   vec   = V.replicate (dx*dy*dz) (2::Int)
-  in case grainFinder rawVBox of  
+  in case grainFinder (==) rawVBox of
     Just (vbox, _) -> do
       let
         vec   = V.map unGrainID $ grainID vbox
@@ -111,8 +111,8 @@ profile_GrainFinder fout = let
         attrs = [mkCellAttr "GrainID" (\a _ _ -> vec V.! a)]
       writeUniVTKfile (fout ++ ".vtr") True vtk
     _ -> putStrLn "Unable to find grains."
- 
-test_GrainFinder fout = case getMicroVoxel vboxTest of
+
+test_GrainFinder fout = case (getMicroVoxel . resetGrainIDs) <$> grainFinder (==) vboxTest of
   Nothing -> putStrLn "Sorry, I can't get the MicroVoxel"
   Just (micro, vboxGID) -> let
     vec   = grainID vboxGID
@@ -126,7 +126,7 @@ test_GrainFinder fout = case getMicroVoxel vboxTest of
 
 vboxTest = VoxBox { dimension = mkStdVoxBoxRange (VoxBoxDim 21   15   5)
                   , origin    = VoxBoxOrigin  0    0    0
-                  , spacing   = VoxelDim      1    1    1 
+                  , spacing   = VoxelDim      1    1    1
                   , grainID   = g }
   where
     g :: V.Vector Int
@@ -162,7 +162,7 @@ vboxTest = VoxBox { dimension = mkStdVoxBoxRange (VoxBoxDim 21   15   5)
           ,2,2,2,2,2,2,2,2,2,2,4,4,4,4,4,4,4,4,4,4,4
           ,2,2,2,2,2,2,2,2,2,2,4,4,4,4,4,4,4,4,4,4,4
           ,2,2,2,2,2,2,2,2,2,2,4,4,4,4,4,4,4,4,4,4,4
-                                                   
+
           ,2,2,2,2,2,2,2,2,2,2,4,4,4,4,4,4,4,4,4,4,4
           ,2,2,2,2,2,2,2,2,2,3,4,4,4,4,4,4,4,4,4,4,4
           ,2,2,2,2,2,2,2,2,2,2,3,3,3,4,4,4,4,4,4,4,4
@@ -178,7 +178,7 @@ vboxTest = VoxBox { dimension = mkStdVoxBoxRange (VoxBoxDim 21   15   5)
           ,2,2,2,2,2,2,2,2,2,2,4,4,4,4,4,4,4,4,4,4,4
           ,2,2,2,2,2,2,2,2,2,2,4,4,4,4,4,4,4,4,4,4,4
           ,2,2,2,2,2,2,2,2,2,2,4,4,4,4,4,4,4,4,4,4,4
-                                                   
+
           ,2,2,2,2,2,2,2,2,2,2,4,4,4,4,4,4,4,4,4,4,4
           ,2,2,2,2,2,2,2,2,2,2,4,4,4,4,4,4,4,4,4,4,4
           ,2,2,2,2,2,2,2,2,2,2,4,4,4,4,4,4,4,4,4,4,4
@@ -194,7 +194,7 @@ vboxTest = VoxBox { dimension = mkStdVoxBoxRange (VoxBoxDim 21   15   5)
           ,2,2,3,2,2,2,2,2,2,2,4,4,4,4,4,4,4,4,4,4,4
           ,2,3,2,2,2,2,2,2,2,2,4,4,4,4,4,4,4,4,4,4,4
           ,3,2,2,2,2,2,2,2,2,2,4,4,4,4,4,4,4,4,4,4,4
-                                                   
+
           ,2,2,2,2,2,2,2,2,2,1,4,4,4,4,4,4,4,4,4,4,4
           ,2,2,2,2,2,2,2,2,2,1,4,4,4,4,4,4,4,4,4,4,4
           ,2,1,1,1,1,1,1,1,1,1,4,4,4,4,4,4,4,4,4,4,4

@@ -46,6 +46,7 @@ class GridConn g where
   toVoxelPos      :: g -> VoxelPos
   getConnPos      :: CartesianDir -> g -> Maybe  (g, g)
   getCrossConnPos :: CartesianDir -> g -> Vector (g, CrossDir)
+  usesCrossDir    :: g -> Bool
 
 -- | Type family class that allows different data containers for input and output data.
 -- The main idea is to have two types of containers: @Vector@ for full grid e.g.
@@ -59,14 +60,6 @@ class (Cont oc Int)=> HasVoxConn oc g where
   mergeDataMap  :: VoxConn oc g -> VoxConn oc g -> Maybe (oc Int)
   initVoxConn   :: (Cont ic a)=> ic a -> VoxBoxRange -> VoxelPos -> VoxConn oc g
   updateDataMap :: Vector g -> Int -> VoxBoxRange -> oc Int -> oc Int
-
--- | Define if a certain property is connected between two neighbor voxels along a
--- specific direction.
-class HasConn a where
-  -- | Direct connections (face-to-face) regarding the @CartesianDir@.
-  isConn      :: Maybe a -> Maybe a -> CartesianDir -> Bool
-  -- | Diagonal connections (edge-to-edge) regarding the @CrossDir@.
-  isCrossConn :: Maybe a -> Maybe a -> CrossDir -> Bool
 
 -- =======================================================================================
 
@@ -86,14 +79,7 @@ instance GridConn VoxelPos where
       YDir -> (p, p #+# VoxelPos 0 1 0)
       ZDir -> (p, p #+# VoxelPos 0 0 1)
   getCrossConnPos = getCrossPos
-
-instance HasConn Int where
-  {-# SPECIALIZE instance HasConn Int #-}
-  isConn (Just a) (Just b) _ = a == b
-  isConn Nothing  Nothing  _ = True
-  isConn _        _        _ = False
-
-  isCrossConn _ _ _ = False
+  usesCrossDir    = const False
 
 -- =======================================================================================
 

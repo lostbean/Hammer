@@ -251,10 +251,6 @@ getExtVBR vbr = let
   (dx, dy, dz) = getVoxBoxDim $ vbrDim vbr
   in vbr {vbrDim = VoxBoxDim (dx*2-1) (dy*2-1) (dz*2-1)}
 
-isConnBase :: (a -> a -> b -> Bool) -> Maybe a -> Maybe a -> b -> Bool
-isConnBase f (Just a)  (Just b)  c = f a b c
-isConnBase _ _         _         _ = False
-
 -- -------------------------- Scan Faces ---------------------------------------
 
 type FaceSet = (HashMap FacePos FaceID, HashMap FaceID (Vector FacePos))
@@ -276,7 +272,7 @@ groupFacesSP vbr fs = let
   hmf = SP.mkSparse3 so sd . V.map (\(!k, !v) -> (fp2spIn k, v)) $ V.fromList fs
 
   faces :: VoxConn Sparse3 FacePos
-  faces = finderVoxConn hmf vbrf
+  faces = finderVoxConn (==) hmf vbrf
 
   foo acc@(accPOS, accFID) k v = case SP.lookup (vp2spIn $ vbrf %# k) hmf of
     Just fid -> let
@@ -299,7 +295,7 @@ groupFaces vbr fs = let
   hmf = HM.fromList $ map (\(!k, !v) -> let f = toFacePos k in f `seq` (f , v)) fs
 
   faces :: VoxConn (HashMap VoxelPos) FacePos
-  faces = finderVoxConn hmf vbrf
+  faces = finderVoxConn (==) hmf vbrf
 
   foo acc@(accPOS, accFID) k v = case HM.lookup (vbrf %# k) hmf of
     Just fid -> let
@@ -321,16 +317,11 @@ instance GridConn FacePos where
   toVoxelPos (FacePos x) = x
   getConnPos             = getConnFacePos
   getCrossConnPos        = getCrossConnFacePos
+  usesCrossDir           = const True
   {-# INLINE toGridType #-}
   {-# INLINE toVoxelPos #-}
   {-# INLINE getConnPos #-}
   {-# INLINE getCrossConnPos #-}
-
-instance HasConn FaceID where
-  isConn      = isConnBase isFaceConn
-  isCrossConn = isConnBase isFaceConn
-  {-# INLINE isConn #-}
-  {-# INLINE isCrossConn #-}
 
 -- | Trick function
 getConnFacePos :: CartesianDir -> FacePos -> Maybe (FacePos, FacePos)
@@ -371,10 +362,6 @@ getCrossConnFacePos dir p@(FacePos vp) = V.map (\(a, b) -> (FacePos a, b)) $ cas
     | isFaceZ p -> V.fromList [getZYminus vp, getZYplus vp, getZXminus vp, getZXplus vp]
     | otherwise -> V.empty
 
-{-# INLINE isFaceConn #-}
-isFaceConn :: FaceID -> FaceID -> a -> Bool
-isFaceConn a b _ = unFaceID a == unFaceID b
-
 -- -------------------------- Scan Edges ---------------------------------------
 
 type EdgeSet = (HashMap EdgePos EdgeID, HashMap EdgeID (Vector EdgePos))
@@ -385,7 +372,7 @@ groupEdges vbr es = let
   hme   = HM.fromList $ map (\(k,v) -> (toEdgePos k, v)) es
 
   edges :: VoxConn (HashMap VoxelPos) EdgePos
-  edges = finderVoxConn hme vbre
+  edges = finderVoxConn (==) hme vbre
 
   foo acc@(accPOS, accEID) k v = case HM.lookup (vbre %# k) hme of
     Just fid -> let
@@ -410,12 +397,7 @@ instance GridConn EdgePos where
   getConnPos             = getConnEdgePos
   {-# INLINABLE getCrossConnPos #-}
   getCrossConnPos        = getCrossConnEdgePos
-
-instance HasConn EdgeID where
-  isConn      = isConnBase isEdgeConn
-  isCrossConn = isConnBase isEdgeConn
-  {-# INLINABLE isConn #-}
-  {-# INLINABLE isCrossConn #-}
+  usesCrossDir           = const True
 
 -- | Trick function
 getConnEdgePos :: CartesianDir -> EdgePos -> Maybe (EdgePos, EdgePos)
@@ -456,17 +438,10 @@ getCrossConnEdgePos dir p@(EdgePos vp) = V.map (\(a, b) -> (EdgePos a, b)) $ cas
     | isEdgeZ p -> V.fromList [getZYminus vp, getZYplus vp, getZXminus vp, getZXplus vp]
     | otherwise -> V.empty
 
-isEdgeConn :: EdgeID -> EdgeID -> a -> Bool
-isEdgeConn a b _ = let
-  foo (Left e1)  (Left e2)  = e1 == e2
-  foo (Right e1) (Right e2) = e1 == e2
-  foo _          _          = False
-  in foo (unEdgeID a) (unEdgeID b)
-
 -- ================================ Benchmark functions ================================
 
 benchmarkMicroVoxel :: VoxBox Int -> [Benchmark]
-benchmarkMicroVoxel vboxdata = case grainFinder vboxdata of
+benchmarkMicroVoxel vboxdata = case grainFinder (==) vboxdata of
   Just (vboxGID, _) -> let
     vbr     = dimension vboxdata
     allPosV = V.fromList $ getRangePos vbr
@@ -480,7 +455,7 @@ benchmarkMicroVoxel vboxdata = case grainFinder vboxdata of
 
     --velems  = getVertex vboxGID edgeSet allPosV
 
-    in traceShow (o1,o2) $ [ bench "grainFinder"  $ nf grainFinder vboxdata
+    in traceShow (o1,o2) $ [ bench "grainFinder"  $ nf (grainFinder (==)) vboxdata
        , bench "groupFaces"   $ nf (groupFaces vbr) felems
        , bench "groupFacesSP" $ nf (groupFacesSP vbr) felems
        --, bench "groupEdges"  $ nf (groupEdges vbr) eelems
