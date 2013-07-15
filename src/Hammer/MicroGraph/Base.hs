@@ -8,21 +8,21 @@
 
 module Hammer.MicroGraph.Base
        ( initMicroGraph
-
+         -- * Insert new elements
        , insertNewVertex
        , insertNewEdge
        , insertNewFace
        , insertNewGrain
-
+         -- * Insert connections only
        , insertVertexConn
        , insertEdgeConn
        , insertFaceConn
-
+         -- * Insert property only
        , insertVertexProp
        , insertEdgeProp
        , insertFaceProp
        , insertGrainProp
-
+         -- * Retrieve properties
        , getVertexProp
        , getEdgeProp
        , getFaceProp
@@ -89,25 +89,25 @@ insertFaceConn fid (mgp@MicroGraph{..}) = let
 insertVertexProp :: (v -> v -> v) -> VertexID -> v
                  -> MicroGraph g f e v -> MicroGraph g f e v
 insertVertexProp func vid v (mgp@MicroGraph{..}) = let
-  mv = alterHM (return . updatePropValue func v) vid microVertex
+  mv = alterHM (return . insertPropValue func v) vid microVertex
   in mgp { microVertex = mv }
 
 insertEdgeProp :: (e -> e -> e) -> EdgeID -> e
                -> MicroGraph g f e v -> MicroGraph g f e v
 insertEdgeProp func eid v (mgp@MicroGraph{..}) = let
-  me = alterHM (return . updatePropValue func v) eid microEdges
+  me = alterHM (return . insertPropValue func v) eid microEdges
   in mgp { microEdges = me }
 
 insertFaceProp :: (f -> f -> f) -> FaceID -> f
                -> MicroGraph g f e v -> MicroGraph g f e v
 insertFaceProp func fid v (mgp@MicroGraph{..}) = let
-  mf = alterHM (return . updatePropValue func v) fid microFaces
+  mf = alterHM (return . insertPropValue func v) fid microFaces
   in mgp { microFaces = mf }
 
 insertGrainProp :: (g -> g -> g) -> GrainID -> g
                 -> MicroGraph g f e v -> MicroGraph g f e v
 insertGrainProp func gid v (mgp@MicroGraph{..}) = let
-  mg = alterHM (return . updatePropValue func v) gid microGrains
+  mg = alterHM (return . insertPropValue func v) gid microGrains
   in mgp { microGrains = mg }
 
 -- ======================== Insert unique new elements and properties ====================
@@ -222,6 +222,8 @@ instance HasPropValue VertexProp where
     VertexProp _ -> VertexProp v
     _            -> VertexProp v
 
+  unsetPropValue = const NullVertexProp
+
   adjustPropValue func v prop = case prop of
     VertexProp t   -> VertexProp (func t v)
     NullVertexProp -> VertexProp v
@@ -239,6 +241,10 @@ instance HasPropValue EdgeProp where
   setPropValue p v = case p of
     EdgeProp c _   -> EdgeProp c v
     NullEdgeProp c -> EdgeProp c v
+
+  unsetPropValue p = case p of
+    EdgeProp c _   -> NullEdgeProp c
+    NullEdgeProp c -> NullEdgeProp c
 
   adjustPropValue func v prop = case prop of
     EdgeProp mg t   -> EdgeProp mg (func t v)
@@ -258,6 +264,10 @@ instance HasPropValue FaceProp where
     FaceProp c _   -> FaceProp c v
     NullFaceProp c -> FaceProp c v
 
+  unsetPropValue p = case p of
+    FaceProp c _   -> NullFaceProp c
+    NullFaceProp c -> NullFaceProp c
+
   adjustPropValue func v prop = case prop of
     FaceProp mf t   -> FaceProp mf (func t v)
     NullFaceProp mf -> FaceProp mf v
@@ -275,6 +285,10 @@ instance HasPropValue GrainProp where
   setPropValue p v = case p of
     GrainProp c _   -> GrainProp c v
     NullGrainProp c -> GrainProp c v
+
+  unsetPropValue p = case p of
+    GrainProp c _   -> NullGrainProp c
+    NullGrainProp c -> NullGrainProp c
 
   adjustPropValue func v prop = case prop of
     GrainProp mv t   -> GrainProp mv (func t v)

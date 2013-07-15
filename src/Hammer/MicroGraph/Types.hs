@@ -10,7 +10,16 @@ module Hammer.MicroGraph.Types
        , FaceID
        , EdgeID
        , VertexID
-
+       , MicroEdge      (..)
+       , GrainProp      (..)
+       , FaceProp       (..)
+       , EdgeProp       (..)
+       , VertexProp     (..)
+       , MicroGraph     (..)
+       , GrainHierarchy (..)
+       , HasPropValue   (..)
+       , HasPropConn    (..)
+         -- * ID safe constructors
        , mkGrainID
        , mkFaceID
        , mkVertexID
@@ -23,26 +32,16 @@ module Hammer.MicroGraph.Types
 
        , mkMultiEdgeID'
        , mkMultiVertexID'
-
+         -- * Alternative ID generator
        , getAlterFaceID
        , getAlterEdgeID
        , getAlterVertexID
-
+         -- * ID de-constructor
        , unGrainID
        , unFaceID
        , unEdgeID
        , unVertexID
-
-       , MicroEdge      (..)
-       , GrainProp      (..)
-       , FaceProp       (..)
-       , EdgeProp       (..)
-       , VertexProp     (..)
-       , MicroGraph     (..)
-       , GrainHierarchy (..)
-       , HasPropValue   (..)
-       , HasPropConn    (..)
-
+         -- * HashMap manipulation
        , insertUniqueHM
        , alterHM
 
@@ -347,14 +346,20 @@ class HasPropValue prop where
   getPropValue    :: prop v -> Maybe v
   -- | Creates a new property with /no/ connections.
   newPropValue    :: v -> prop v
+  -- | Set the property to a /null/.
+  unsetPropValue  :: prop v -> prop v1
   -- | Set a property value and discard the old value.
   setPropValue    :: prop v -> v1 -> prop v1
   -- | Adjust a property value by combining the old value with a new value.
   adjustPropValue :: (v -> v1 -> v1) -> v1 -> prop v -> prop v1
+  -- | Adjust with the given function if it receives a valid property ('Just') otherwise
+  -- unset the property value.
+  updatePropValue :: (v -> v1 -> v1) -> Maybe v1 -> prop v -> prop v1
+  updatePropValue func v p = maybe (unsetPropValue p) (\x -> adjustPropValue func x p) v
   -- | Adjusts if it receives a property ('Just') otherwise creates a new property without
   -- connections.
-  updatePropValue :: (v -> v1 -> v1) -> v1 -> Maybe (prop v) -> prop v1
-  updatePropValue func v = maybe (newPropValue v) (adjustPropValue func v)
+  insertPropValue :: (v -> v1 -> v1) -> v1 -> Maybe (prop v) -> prop v1
+  insertPropValue func v = maybe (newPropValue v) (adjustPropValue func v)
 
 --  -------------------------------- HasPropConn Class -----------------------------------
 
