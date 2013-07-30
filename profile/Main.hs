@@ -33,17 +33,17 @@ data Tester =
 
 tester :: Parser Tester
 tester = Tester
-  <$> parseMaybeOpt
+  <$> (optional . strOption)
       (  long "grainfinder-test"
       <> short 'g'
       <> metavar "VTK_OUT"
       <> help "Test GrainFinder in a standard voxelized microstructure.")
-  <*> parseMaybeOpt
+  <*> (optional . strOption)
       (  long "grainfinder-profile"
       <> short 'G'
       <> metavar "VTK_OUT"
       <> help "Profile GrainFinder in a standard voxelized microstructure.")
-  <*> parseMaybeOpt
+  <*> (optional . strOption)
       (  long "vtkRender-profile"
       <> short 'r'
       <> metavar "VTK_OUT"
@@ -52,9 +52,6 @@ tester = Tester
       (  long "test-suit"
       <> short 't'
       <> help "Run test suit." )
-
-parseMaybeOpt cfg = (Just <$> strOption cfg) <|> pure Nothing
-
 
 main :: IO ()
 main = execParser opts >>= run
