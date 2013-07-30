@@ -19,6 +19,16 @@ description: Library with tools for metalurgical research. Includes:
 category:       Math
 author:         Edgar Gomes de Araujo
 
+data-files:     datatables/tableF1D.data
+                datatables/tableF2D.data
+                datatables/tableF3D.data
+                datatables/tabledFdZ1_2D.data
+                datatables/tabledFdZ1_3D.data
+                datatables/tabledFdZ2_2D.data
+                datatables/tabledFdZ2_3D.data
+                datatables/tabledFdZ3_3D.data
+                datatables/tabledFdZ_1D.data
+
 Flag test
     Description:        Build the exectable using command line.
     Default:            False
@@ -26,6 +36,29 @@ Flag test
 Flag corrector
     Description:        Build the ANGCorrector exectable.
     Default:            False
+
+Flag tablegen
+    Description:        Build the table generator for Bingham constants.
+    Default:            False
+
+Executable tablegen
+    main-is:           TableGen.hs
+    if flag(tablegen)
+       build-depends:  hammer
+                     , base                 == 4.*
+
+       hs-source-dirs: profile
+
+       ghc-options:    -Wall
+                      -- -optl-static
+                      -- -optl-pthread
+                       -O2
+                       -rtsopts
+                       -threaded
+                       -- -eventlog
+       Buildable:      True
+    else
+       Buildable:      False
 
 Executable ANGCorrector
     main-is:           ANGCorrector.hs
@@ -80,6 +113,7 @@ Executable hammer-profile
     if flag(test)
        build-depends:  optparse-applicative >= 0.5
                      , hammer
+                     , array                == 0.4.*
                      , base                 == 4.*
                      , vector               == 0.10.*
                      , random               == 1.0.*
@@ -122,6 +156,7 @@ Library
                 , parsec               == 3.*
                 , blaze-builder        == 0.3.*
                 , base64-bytestring    == 1.0.*
+                , binary               >= 0.7
                 , criterion            >= 0.6
 
   exposed-modules:  Hammer.Math.Algebra
@@ -142,6 +177,7 @@ Library
                     Hammer.Texture.SphereProjection
                     Hammer.Texture.IPF
                     Hammer.Texture.Bingham
+                    Paths_hammer
 
                     Hammer.Reader.ANGReader
                     Hammer.Writer.ANGWriter
@@ -162,12 +198,11 @@ Library
                     Hammer.VoxBox.Types
 
                     Hammer.Texture.BinghamNormalization
-
+                    Hammer.Texture.BinghamTable
   exposed:        True
   buildable:      True
   hs-source-dirs: src
-  ghc-options:
-                  -O2
+  ghc-options:    -O2
                   -rtsopts
                   -Wall
                   -funbox-strict-fields
