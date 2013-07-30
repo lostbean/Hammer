@@ -17,15 +17,15 @@ class AbelianGroup g where
   zero :: g
 
 infixl 6 &+
-infixl 6 &- 
+infixl 6 &-
 
 class MultSemiGroup r where
   (.*.) :: r -> r -> r
   one   :: r
 
-class (AbelianGroup r, MultSemiGroup r) => Ring r 
+class (AbelianGroup r, MultSemiGroup r) => Ring r
 
-infixl 7 .*. 
+infixl 7 .*.
 
 class LeftModule r m where
   lmul :: r -> m -> m
@@ -37,9 +37,9 @@ class RightModule m r where
   (.*) :: m -> r -> m
   (.*) = rmul
 
--- I'm not really sure about this.. may actually degrade the performance in some cases?  
+-- I'm not really sure about this.. may actually degrade the performance in some cases?
 {- RULES
-"matrix multiplication left"   forall m n x.  (n .*. m) *. x = n *. (m *. x)  
+"matrix multiplication left"   forall m n x.  (n .*. m) *. x = n *. (m *. x)
 "matrix multiplication right"  forall m n x.  x .* (m .*. n) = (x .* m) .* n
 -}
 
@@ -49,8 +49,8 @@ infixl 7 .*
 class (AbelianGroup v)=> MultiVec v where
   mapVec    :: (Double -> Double) -> v -> v
   scalarMul :: Double -> v -> v
-  (*&)      :: Double -> v -> v 
-  (&*)      :: v -> Double -> v 
+  (*&)      :: Double -> v -> v
+  (&*)      :: v -> Double -> v
   (*&) s v = scalarMul s v
   (&*) v s = scalarMul s v
 
@@ -58,18 +58,18 @@ infixr 7 *&
 infixl 7 &*
 
 {-# RULES
-"scalar multiplication left"   forall s t x.  t *& (s *& x) = (t*s) *& x 
-"scalar multiplication right"  forall s t x.  (x &* s) &* t = x &* (s*t)  
+"scalar multiplication left"   forall s t x.  t *& (s *& x) = (t*s) *& x
+"scalar multiplication right"  forall s t x.  (x &* s) &* t = x &* (s*t)
   #-}
 
 class DotProd v where
   (&.) :: v -> v -> Double
-  
+
   norm :: v -> Double
   norm = sqrt . lensqr
 
   normsqr :: v -> Double
-  normsqr v = (v &. v)  
+  normsqr v = (v &. v)
 
   len :: v -> Double
   len = norm
@@ -94,19 +94,19 @@ class (MultiVec v, DotProd v) => UnitVector v u | v -> u, u -> v  where
   toNormalUnsafe   :: v -> u       -- ^ does not normalize the input!
   fromNormal       :: u -> v
   fromNormalRadius :: Double -> u -> v
-  fromNormalRadius t n = t *& fromNormal n 
+  fromNormalRadius t n = t *& fromNormal n
 
 -- | Cross product
 class CrossProd v where
   crossprod :: v -> v -> v
   (&^)      :: v -> v -> v
   (&^) = crossprod
- 
--- | Pointwise multiplication 
+
+-- | Pointwise multiplication
 class Pointwise v where
   pointwise :: v -> v -> v
   (&!)      :: v -> v -> v
-  (&!) = pointwise 
+  (&!) = pointwise
 
 infix 7 &^
 infix 7 &!
@@ -115,7 +115,7 @@ class HasCoordinates v x | v -> x where
   _1 :: v -> x
   _2 :: v -> x
   _3 :: v -> x
-  _4 :: v -> x      
+  _4 :: v -> x
 
 -- | Conversion between vectors (and matrices) of different dimensions.
 class Extend u v where
@@ -127,14 +127,14 @@ class Extend u v where
   trimHead       :: v -> u           -- ^ example: @trimHead (Vec4 5 6 7 8) = Vec2 7 8@
 
 -- ================================== Matrix ==================================
-  
--- | Makes a diagonal matrix from a vector and extracts the diagonal from matrices. 
+
+-- | Makes a diagonal matrix from a vector and extracts the diagonal from matrices.
 class Diagonal s t | t -> s where
   diagMtx :: s -> t
   diagVec :: t -> s
 
 class Matrix m where
-  transpose :: m -> m 
+  transpose :: m -> m
   inverse   :: m -> m
   idmtx     :: m
 
@@ -142,16 +142,16 @@ class Matrix m where
 "transpose is an involution"  forall m. transpose (transpose m) = m
 "inverse is an involution"    forall m. inverse (inverse m) = m
  #-}
-  
-class Matrix m => Orthogonal m o | m -> o, o -> m where  
-  fromOrtho     :: o -> m 
+
+class Matrix m => Orthogonal m o | m -> o, o -> m where
+  fromOrtho     :: o -> m
   toOrthoUnsafe :: m -> o
 
 class Hessenberg m where
   -- | Find the tridiagonalization of symmetric matrices or transforms non-symmetric
   -- matrices to a Hessenberg form. Uses Householder transformation.
   hessen :: m -> m
- 
+
 -- | Class of orthogonalization function to calculate the orthonormal matrix of an
 -- m-by-m square matrix A with. This can be used for QR decompositon where Q is an
 -- orthogonal matrix and R is an upper triangular matrix.
@@ -162,7 +162,7 @@ class OrthoMatrix m where
   orthoRowsHouse = transpose . orthoColsHouse . transpose
 
   -- | Implements the modified Gram-Schmidt algorithm to calculate an orthonormal basis of a
-  -- matrix. The modified version has more stability in finite precision calculations. 
+  -- matrix. The modified version has more stability in finite precision calculations.
   -- This particular implementation does the calculation over the matrix's rows.
   orthoRowsGram :: m -> m
 
@@ -176,9 +176,9 @@ class OrthoMatrix m where
 -- | Outer product (could be unified with Diagonal?)
 class Tensor t v | t -> v where
   outer :: v -> v -> t
-    
+
 class Determinant m where
-  det :: m -> Double    
+  det :: m -> Double
 
 class Dimension a where
   dim :: a -> Int
@@ -215,7 +215,7 @@ data Vec2 = Vec2 {-# UNPACK #-} !Double {-# UNPACK #-} !Double
   deriving (Eq, Read, Show)
 data Vec3 = Vec3 {-# UNPACK #-} !Double {-# UNPACK #-} !Double {-# UNPACK #-} !Double
   deriving (Eq, Read, Show)
-data Vec4 = Vec4 {-# UNPACK #-} !Double {-# UNPACK #-} !Double {-# UNPACK #-} !Double {-# UNPACK #-} !Double 
+data Vec4 = Vec4 {-# UNPACK #-} !Double {-# UNPACK #-} !Double {-# UNPACK #-} !Double {-# UNPACK #-} !Double
   deriving (Eq, Read, Show)
 
 -- | The components are /row/ vectors
@@ -266,8 +266,8 @@ project :: (MultiVec v, DotProd v) => v -> v -> v
 project what dir = what &- dir &* ((what &. dir) / (dir &. dir))
 
 -- | Since unit vectors are not a group, we need a separate function.
-flipNormal :: UnitVector v n => n -> n 
-flipNormal = toNormalUnsafe . neg . fromNormal 
+flipNormal :: UnitVector v n => n -> n
+flipNormal = toNormalUnsafe . neg . fromNormal
 
 qrHouse :: (OrthoMatrix m, MultSemiGroup m, Matrix m)=> m -> (m, m)
 qrHouse m = (q, r)
@@ -284,11 +284,11 @@ qrGram m = (transpose q, r)
 -- eigenvalues only (the eigenvectors should be post processed) if the
 -- input matrix is a tridiagonal symmetric matrix or a upper Hessenberg
 -- non-symmetric matrix.
-symmEigen :: ( OrthoMatrix m, MultSemiGroup m, MatFunctor m 
+symmEigen :: ( OrthoMatrix m, MultSemiGroup m, MatFunctor m
              , Diagonal v m , Dimension m , Matrix m
              , VecFunctor v Double)=> m -> (m, v)
 symmEigen m = let
-  (q0, r0) = qrGram m 
+  (q0, r0) = qrGram m
   eigen !u !a !count
     | count <= 0      = (u, diagVec a)
     | offdiag < limit = (u, diagVec a)
@@ -296,24 +296,24 @@ symmEigen m = let
     where
       (diag, offdiag) = diagOffDiag a
       epsilon = 1e-10
-      limit   = max (epsilon * diag) epsilon 
+      limit   = max (epsilon * diag) epsilon
       (q, r)  = qrGram a
   in eigen q0 (r0 .*. q0) (10 * dim m)
 
--- | Householder matrix, see <http://en.wikipedia.org/wiki/Householder_transformation>.  
+-- | Householder matrix, see <http://en.wikipedia.org/wiki/Householder_transformation>.
 -- In plain words, it is the reflection to the hyperplane orthogonal to the input vector.
 -- The input vector is normalized before the Householder transformation.
 householder :: (MultiVec v, DotProd v, Matrix m, MultiVec m, Tensor m v) => v -> m
 householder v
-  | len > 0   = idmtx &- ((2 / len) *& (outer v v))
+  | l > 0     = idmtx &- ((2 / l) *& (outer v v))
   | otherwise = idmtx
-  where len = normsqr v
+  where l = normsqr v
 
 mkVec2 :: (Double, Double) -> Vec2
 mkVec3 :: (Double, Double, Double) -> Vec3
 mkVec4 :: (Double, Double, Double, Double) -> Vec4
 
-mkVec2 (x,y)     = Vec2 x y 
+mkVec2 (x,y)     = Vec2 x y
 mkVec3 (x,y,z)   = Vec3 x y z
 mkVec4 (x,y,z,w) = Vec4 x y z w
 
@@ -333,9 +333,9 @@ schimi a b
 getQ :: ( Num a, Ord a, UnitVector v1 u, Tensor m v1, MultiVec m
         , Matrix m, HasCoordinates m v1, HasCoordinates v1 a, HasE1 v1)
         => m -> m
-getQ m = let 
+getQ m = let
   x = _1 $ transpose m
-  l = norm x 
+  l = norm x
   a = if _1 x > 0 then -l else l
   u = x &+ vece1 a
   in householder u
@@ -347,18 +347,19 @@ diagOffDiag m = let
   total = matFoldr (+) $ matMap abs m
   in (diag, total - diag)
 
+safeNormalize :: (MultiVec v, DotProd v) => v -> v -> v
+safeNormalize fallback vec
+  | l > 0     = vec &* (1 / l)
+  | otherwise = fallback
+  where l = norm vec
+
 class HasE1 a where
   vece1 :: Double -> a
-  
 instance HasE1 Vec2 where
   vece1 x = Vec2 x 0
-
 instance HasE1 Vec3 where
   vece1 x = Vec3 x 0 0
-
 instance HasE1 Vec4 where
   vece1 x = Vec4 x 0 0 0
 
 -- =========================================================================================
-
-  
