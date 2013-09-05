@@ -5,7 +5,6 @@ build-type:     Simple
 license:        GPL-3
 license-file:   LICENSE
 maintainer:     Edgar Gomes de Araujo
-
 stability:      experimental
 homepage:
 package-url:
@@ -19,16 +18,6 @@ description: Library with tools for metalurgical research. Includes:
 category:       Math
 author:         Edgar Gomes de Araujo
 
-data-files:     datatables/tableF1D.data
-                datatables/tableF2D.data
-                datatables/tableF3D.data
-                datatables/tabledFdZ1_2D.data
-                datatables/tabledFdZ1_3D.data
-                datatables/tabledFdZ2_2D.data
-                datatables/tabledFdZ2_3D.data
-                datatables/tabledFdZ3_3D.data
-                datatables/tabledFdZ_1D.data
-
 Flag test
     Description:        Build the exectable using command line.
     Default:            False
@@ -40,25 +29,6 @@ Flag corrector
 Flag tablegen
     Description:        Build the table generator for Bingham constants.
     Default:            False
-
-Executable tablegen
-    main-is:           TableGen.hs
-    if flag(tablegen)
-       build-depends:  hammer
-                     , base                 == 4.*
-
-       hs-source-dirs: profile
-
-       ghc-options:    -Wall
-                      -- -optl-static
-                      -- -optl-pthread
-                       -O2
-                       -rtsopts
-                       -threaded
-                       -- -eventlog
-       Buildable:      True
-    else
-       Buildable:      False
 
 Executable ANGCorrector
     main-is:           ANGCorrector.hs
@@ -177,7 +147,6 @@ Library
                     Hammer.Texture.SphereProjection
                     Hammer.Texture.IPF
                     Hammer.Texture.Bingham
-                    Paths_hammer
 
                     Hammer.Reader.ANGReader
                     Hammer.Writer.ANGWriter
@@ -197,8 +166,7 @@ Library
                     Hammer.VoxBox.VoxConnTypes
                     Hammer.VoxBox.Types
 
-                    Hammer.Texture.BinghamNormalization
-                    Hammer.Texture.BinghamTable
+                    Hammer.Texture.BinghamConstant
   exposed:        True
   buildable:      True
   hs-source-dirs: src
