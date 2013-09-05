@@ -132,6 +132,7 @@ Library
   exposed-modules:  Hammer.Math.Algebra
                     Hammer.Math.SortSeq
                     Hammer.Math.SparseMatrix
+                    Hammer.Math.Array
 
                     Hammer.Render.VTK.VTKRender
                     Hammer.Render.VoxBoxVTK
