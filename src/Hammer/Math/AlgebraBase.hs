@@ -27,12 +27,12 @@ class (AbelianGroup r, MultSemiGroup r) => Ring r
 
 infixl 7 .*.
 
-class LeftModule r m where
+class LeftModule r m | r -> m, m -> r where
   lmul :: r -> m -> m
   (*.) :: r -> m -> m
   (*.) = lmul
 
-class RightModule m r where
+class RightModule m r | r -> m, m -> r where
   rmul :: m -> r -> m
   (.*) :: m -> r -> m
   (.*) = rmul
@@ -89,7 +89,7 @@ infix 7 &.
 "norm/square 2"  forall x.  (norm x)^2 = normsqr x
   #-}
 
-class (MultiVec v, DotProd v) => UnitVector v u | v -> u, u -> v  where
+class (MultiVec v, DotProd v) => UnitVector v u | v -> u, u -> v where
   mkNormal         :: v -> u       -- ^ normalizes the input
   toNormalUnsafe   :: v -> u       -- ^ does not normalize the input!
   fromNormal       :: u -> v
@@ -316,6 +316,14 @@ mkVec4 :: (Double, Double, Double, Double) -> Vec4
 mkVec2 (x,y)     = Vec2 x y
 mkVec3 (x,y,z)   = Vec3 x y z
 mkVec4 (x,y,z,w) = Vec4 x y z w
+
+unVec2 :: Vec2 -> (Double, Double)
+unVec3 :: Vec3 -> (Double, Double, Double)
+unVec4 :: Vec4 -> (Double, Double, Double, Double)
+
+unVec2 (Vec2 x y)     = (x,y)
+unVec3 (Vec3 x y z)   = (x,y,z)
+unVec4 (Vec4 x y z w) = (x,y,z,w)
 
 -- ============================ DO NOT EXPORT OrthoMatrix algorithms ========================
 

@@ -32,6 +32,7 @@ module Hammer.Math.Algebra
   , Mat2 (..), Mat3 (..), Mat4 (..)
   , Normal2, Normal3, Normal4
   , mkVec2 , mkVec3 , mkVec4
+  , unVec2 , unVec3 , unVec4
   , project , project' , projectUnsafe , flipNormal
   , householder
   , VecFunctor (..)
