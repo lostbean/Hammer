@@ -26,10 +26,6 @@ Flag corrector
     Description:        Build the ANGCorrector exectable.
     Default:            False
 
-Flag tablegen
-    Description:        Build the table generator for Bingham constants.
-    Default:            False
-
 Executable ANGCorrector
     main-is:           ANGCorrector.hs
     if flag(corrector)
@@ -126,13 +122,13 @@ Library
                 , parsec               == 3.*
                 , blaze-builder        == 0.3.*
                 , base64-bytestring    == 1.0.*
-                , binary               >= 0.7
                 , criterion            >= 0.6
 
   exposed-modules:  Hammer.Math.Algebra
+                    Hammer.Math.Array
                     Hammer.Math.SortSeq
                     Hammer.Math.SparseMatrix
-                    Hammer.Math.Array
+                    Hammer.Math.Optimum
 
                     Hammer.Render.VTK.VTKRender
                     Hammer.Render.VoxBoxVTK
