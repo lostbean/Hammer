@@ -6,7 +6,7 @@
 module Hammer.Math.Optimum
        ( lineSearch
        , bfgs
-       , defaultCFG
+       , defaultBFGS
        ) where
 
 import Hammer.Math.Algebra
@@ -14,24 +14,14 @@ import Hammer.Math.Algebra
 import Debug.Trace
 dbg s x = trace (s ++ show x) x
 
--- ================================= Lookup tables =======================================
-
-data BFGScfg =
-  BFGScfg
-  { epsi   :: Double
-  , tol    :: Double
-  , niter  :: Int
-  } deriving (Show)
-
-defaultCFG :: BFGScfg
-defaultCFG = BFGScfg { epsi = 1e-9, tol = 1e-7, niter = 100 }
+-- =================================== Line Search =======================================
 
 -- | Inexact line search algorithm using strong Wolfe conditions.
 lineSearch :: (MultiVec v, DotProd v, AbelianGroup v)=>
-              (v -> (Double, v)) -> v -> v -> Double -> Double
-lineSearch func x p a0
-  | dphi0 < 0 = upper 0 a0
-  | otherwise = a0
+              (v -> (Double, v)) -> v -> v -> Double
+lineSearch func x p
+  | dphi0 < 0 = upper 0 1
+  | otherwise = 1
   where
     dir = p
     c1  = 0.0001
@@ -74,23 +64,35 @@ lineSearch func x p a0
         wolfe1 = phia > phi0 + c1 * a * dphi0
         wolfe2 = abs (dphia) <= -c2 * dphi0
 
+-- ======================================= BFGS ==========================================
+
+data BFGScfg =
+  BFGScfg
+  { epsi   :: Double
+  , tol    :: Double
+  , niter  :: Int
+  } deriving (Show)
+
+defaultBFGS :: BFGScfg
+defaultBFGS = BFGScfg { epsi = 1e-9, tol = 1e-7, niter = 100 }
+
 -- | Quasi-Newton algorithm BFGS for function minimization. Implementation based on:
 -- "Springer Series in Operations Research and Financial Engineering"
 bfgs :: ( MultiVec v, DotProd v, AbelianGroup v, Tensor m v
         , Matrix m, LeftModule m v, MultSemiGroup m, MultiVec m)
         => BFGScfg -> (v -> (Double, v)) -> v -> v
-bfgs BFGScfg{..} func x = go 0 (x, g, idmtx, 1)
+bfgs BFGScfg{..} func x = go 0 (x, g, idmtx)
   where
     (_, g) = func x
-    go counter (x0, g0, h0, a0)
+    go counter (x0, g0, h0)
       | counter > niter       = trace "No conversion" x1
-      | norm g1 < epsi        = traceShow ("epsi", counter) x1
-      | norm (x0 &- x1) < tol = traceShow ("diff", counter) x1
-      | counter < 1           = go (counter + 1) (x1, g1, h1a, a1)
-      | otherwise             = go (counter + 1) (x1, g1, h1, a1)
+      | norm g1 < epsi        = x1
+      | norm (x0 &- x1) < tol = x1
+      | counter < 1           = go (counter + 1) (x1, g1, h1a)
+      | otherwise             = go (counter + 1) (x1, g1, h1)
       where
         dir = neg (h0 *. g0)
-        a1  = lineSearch func x0 dir 1
+        a1  = lineSearch func x0 dir
         x1  = x0 &+ a1 *& dir
 
         (_, g1) = func x1
@@ -107,7 +109,8 @@ bfgs BFGScfg{..} func x = go 0 (x, g, idmtx, 1)
           mc = p0 *& (outer s0 s0)
           in ma .*. h0 .*. mb &+ mc
 
+-- =================================== Test functions=====================================
 
 testLS   = lineSearch (\(Vec2 x y) -> (x*x + y*y, Vec2 (2*x) (2*y))) (Vec2 1 0) (Vec2 (-4) (-2))
-testBFGS = bfgs defaultCFG func (Vec2 100 (431))
+testBFGS = bfgs defaultBFGS func (Vec2 100 (431))
   where func (Vec2 x y) = dbg "func: " (2*x*x + 2*x*y + 2*y*y - 6*x, Vec2 (4*x + 2*y - 6) (2*x + 4*y))
