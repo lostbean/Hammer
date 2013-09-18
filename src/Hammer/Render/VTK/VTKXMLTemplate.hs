@@ -143,7 +143,7 @@ renderWholeExtAttr :: (Int, Int, Int) -> Xml Attr
 renderWholeExtAttr = xattr "WholeExtent" . renderExtent
 
 renderSpaceAttr :: (Double, Double, Double) -> Xml Attr
-renderSpaceAttr = xattr "Space" . renderTriple
+renderSpaceAttr = xattr "Spacing" . renderTriple
 
 renderOriginAttr :: (Double, Double, Double) -> Xml Attr
 renderOriginAttr = xattr "Origin" . renderTriple
