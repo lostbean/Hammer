@@ -6,11 +6,11 @@
 
 module Hammer.VoxBox.Base
   ( module Hammer.VoxBox.Types
-  , (%@), (%@?), (%#), (%#?), (#-#), (#+#), (#!)
+  , (%@), (%@?), (%#), (%#?), (#!), (#!?)
   , checkPosBound
   , getVoxelID
-  , getCrossPos
-  , isInBox
+
+    -- * Box Range
   , sizeVoxBoxRange
   , splitInTwoBox
   , mergeVoxBoxRange
@@ -19,6 +19,10 @@ module Hammer.VoxBox.Base
   , getVoxBoxDim
   , evalLinPos
   , getRangePos
+
+    -- * Directions
+  , (#-#), (#+#), (#*#), (#/#)
+  , getCrossPos
   , xDir, yDir, zDir
   , deltaXYplus, deltaXYminus, deltaXZplus, deltaXZminus
   , deltaYXplus, deltaYXminus, deltaYZplus, deltaYZminus
@@ -27,31 +31,39 @@ module Hammer.VoxBox.Base
   , getYXplus, getYXminus, getYZplus, getYZminus
   , getZXplus, getZXminus, getZYplus, getZYminus
 
-  , isFaceX, isFaceY, isFaceZ
-  , toFaceVoxelPos, toFacePos
-  , isEdgeX, isEdgeY, isEdgeZ
-  , toEdgeVoxelPos, toEdgePos
+    -- * Conversion between Face and Edge masks
+  , toFaceVoxelPos
+  , toFacePos
+  , toEdgeVoxelPos
+  , toEdgePos
 
-  , (#*), (#/)
-  , evalDisplacedVoxelPos
+    -- * Test conditions
+  , isInBox
+  , isFaceX, isFaceY, isFaceZ
+  , isEdgeX, isEdgeY, isEdgeZ
+  , isOnEdge
+  , isMinRange
+
+    -- * Position evaluation
   , evalVoxelPos
+  , fastEvalVoxelPos
+  , evalCentralVoxelPos
+  , evalDisplacedVoxelPos
   , evalFacePos
+  , evalFaceCorners
   , findIntersection
   , getEdgeEndPoints
   , getEdgeEndPos
   , posSet2VoxBox
   , posRange2VoxBox
-  , isOnEdge
-  , isMinRange
-  , fastEvalVoxelPos
 
+    -- * Plane definition
   , Plane (..)
   , Line  (..)
 
   ) where
 
 import qualified Data.Vector         as V
-import qualified Data.Vector.Unboxed as U
 
 import           Data.Bits           (complement, (.&.), (.|.))
 import           Data.Vector         (Vector, (!))
@@ -126,12 +138,13 @@ vbr %#? i = getVoxelPos vbr i
 (#-#) :: VoxelPos -> VoxelPos -> VoxelPos
 (VoxelPos x1 y1 z1) #-# (VoxelPos x2 y2 z2) = VoxelPos (x1-x2) (y1-y2) (z1-z2)
 
-{-# INLINE (#*) #-}
-(#*) :: VoxelPos -> Int -> VoxelPos
-(VoxelPos x y z) #* k = VoxelPos (x*k) (y*k) (z*k)
+{-# INLINE (#*#) #-}
+(#*#) :: VoxelPos -> Int -> VoxelPos
+(VoxelPos x y z) #*# k = VoxelPos (x*k) (y*k) (z*k)
 
-(#/) :: VoxelPos -> Int -> (VoxelPos, VoxelPos)
-(VoxelPos x y z) #/ k = let
+{-# INLINE (#/#) #-}
+(#/#) :: VoxelPos -> Int -> (VoxelPos, VoxelPos)
+(VoxelPos x y z) #/# k = let
   (q1,r1) = x `quotRem` k
   (q2,r2) = y `quotRem` k
   (q3,r3) = z `quotRem` k
@@ -140,8 +153,12 @@ vbr %#? i = getVoxelPos vbr i
   in (q, r)
 
 {-# INLINE (#!) #-}
-(#!) :: VoxBox a -> VoxelPos -> Maybe a
-VoxBox{..} #! pos
+(#!) :: VoxBox a -> VoxelPos -> a
+VoxBox{..} #! pos = grainID ! (unsafeGetVoxelID dimension pos)
+
+{-# INLINE (#!?) #-}
+(#!?) :: VoxBox a -> VoxelPos -> Maybe a
+VoxBox{..} #!? pos
   | checkPosBound dimension pos = let
     i = unsafeGetVoxelID dimension pos
     in return $ grainID ! i
@@ -238,6 +255,17 @@ evalVoxelPos vbox (VoxelPos x y z) = let
   vz = iz + dz * (fromIntegral z - 0.5)
   in Vec3 vx vy vz
 
+-- | Evaluate the position at the center of the voxel e.g. @VoxelPos 0 0 0@ has its center
+-- at @Vec3 0 0 0@ if the origin is at @Vec3 0 0 0@.
+evalCentralVoxelPos :: VoxBox a -> VoxelPos -> Vec3
+evalCentralVoxelPos vbox (VoxelPos x y z) = let
+  VoxBoxOrigin ix iy iz = origin  vbox
+  VoxelDim     dx dy dz = spacing vbox
+  vx = ix + dx * (fromIntegral x)
+  vy = iy + dy * (fromIntegral y)
+  vz = iz + dz * (fromIntegral z)
+  in Vec3 vx vy vz
+
 -- | Evaluate the face plane given by a point and a normal the face where the point is at
 -- the center of a voxel face.
 evalFacePos :: VoxBox a -> FaceVoxelPos -> Plane Vec3 Normal3
@@ -248,6 +276,17 @@ evalFacePos vbox face = let
     Fx p -> func (p, Vec3 1 0 0) (Vec3 0      (dy/2) (dz/2))
     Fy p -> func (p, Vec3 0 1 0) (Vec3 (dx/2) 0      (dz/2))
     Fz p -> func (p, Vec3 0 0 1) (Vec3 (dx/2) (dy/2) 0     )
+
+-- | Evaluate the four corner points of a given face. The output sequence of corner points
+-- is given in the clockwise direction.
+evalFaceCorners :: VoxBox a -> FaceVoxelPos -> (Vec3, Vec3, Vec3, Vec3)
+evalFaceCorners vbox face = let
+  VoxelDim dx dy dz = spacing vbox
+  func a = (evalVoxelPos vbox a &+)
+  in case face of
+    Fx p -> (func p zero, func p (Vec3 0 dy 0), func p (Vec3 0 dy dz), func p (Vec3 0 0 dz))
+    Fy p -> (func p zero, func p (Vec3 0 0 dz), func p (Vec3 dx 0 dz), func p (Vec3 dx 0 0))
+    Fz p -> (func p zero, func p (Vec3 dx 0 0), func p (Vec3 dx dy 0), func p (Vec3 0 dy 0))
 
 findIntersection :: (DotProd u, UnitVector v u)=> Plane v u -> Line v u -> Maybe v
 findIntersection (Plane (p0, n)) (Line (l0, l))

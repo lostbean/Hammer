@@ -119,10 +119,10 @@ getFaces vbox@VoxBox{..} = V.foldl' go []
     vx   = pos #+# (VoxelPos (-1)   0    0 )
     vy   = pos #+# (VoxelPos   0  (-1)   0 )
     vz   = pos #+# (VoxelPos   0    0  (-1))
-    p    = vbox#!v
-    px   = vbox#!vx
-    py   = vbox#!vy
-    pz   = vbox#!vz
+    p    = vbox#!?v
+    px   = vbox#!?vx
+    py   = vbox#!?vy
+    pz   = vbox#!?vz
     fx = checkFace p px
     fy = checkFace p py
     fz = checkFace p pz
@@ -179,14 +179,14 @@ getVertex vbox@VoxBox{..} (hmEID, _) = let
     vzx  = pos #+# (VoxelPos (-1)   0  (-1))
     vxyz = pos #+# (VoxelPos (-1) (-1) (-1))
 
-    p    = vbox#!v
-    px   = vbox#!vx
-    py   = vbox#!vy
-    pz   = vbox#!vz
-    pxy  = vbox#!vxy
-    pyz  = vbox#!vyz
-    pzx  = vbox#!vzx
-    pxyz = vbox#!vxyz
+    p    = vbox#!?v
+    px   = vbox#!?vx
+    py   = vbox#!?vy
+    pz   = vbox#!?vz
+    pxy  = vbox#!?vxy
+    pyz  = vbox#!?vyz
+    pzx  = vbox#!?vzx
+    pxyz = vbox#!?vxyz
 
     foo x = HM.lookup (EdgePos $ toEdgePos x) hmEID
 
