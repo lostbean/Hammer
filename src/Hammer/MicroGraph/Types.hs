@@ -67,7 +67,7 @@ import           Data.Binary
 
 --import           Debug.Trace
 
--- =======================================================================================
+-- =================================== Graph data types ==================================
 
 newtype GrainID = GrainID Int deriving (Show, Eq, Ord, Generic)
 
@@ -105,6 +105,45 @@ data VertexID
   | AlterVertexID {-# UNPACK #-} !Int IntSet
   deriving (Show, Eq, Generic)
 
+-- | Define the concept of edge (triple line in 3D microstructure or grain boundary in 2D)
+data MicroEdge
+  = DummyEdge
+  | BadEdge  [VertexID]
+  | HalfEdge VertexID
+  | FullEdge VertexID VertexID
+  deriving (Show, Eq, Generic)
+
+data VertexProp a
+  = VertexProp a
+  | NullVertexProp
+  deriving (Show, Generic)
+
+data EdgeProp   a
+  = EdgeProp     MicroEdge a
+  | NullEdgeProp MicroEdge
+  deriving (Show, Generic)
+
+data FaceProp   a
+  = FaceProp     (HashSet EdgeID) a
+  | NullFaceProp (HashSet EdgeID)
+  deriving (Show, Generic)
+
+data GrainProp  a
+  = GrainProp     (HashSet FaceID) a
+  | NullGrainProp (HashSet FaceID)
+  deriving (Show, Generic)
+
+-- | Define the microstructure graph with properties associated to
+-- which one of the entities: 'GrainProp', 'FaceProp', 'EdgeProp' and 'VertexProp'.
+data MicroGraph g f e v = MicroGraph
+  { microGrains :: HashMap GrainID  (GrainProp  g)
+  , microFaces  :: HashMap FaceID   (FaceProp   f)
+  , microEdges  :: HashMap EdgeID   (EdgeProp   e)
+  , microVertex :: HashMap VertexID (VertexProp v)
+  } deriving (Show, Generic)
+
+-- ================================= IDs builder =========================================
+
 mkGrainID :: Int -> GrainID
 mkGrainID = GrainID
 
@@ -141,6 +180,7 @@ mkMultiVertexID' [a,b,c,d]      = return $ mkVertexID' (a, b, c, d)
 mkMultiVertexID' xs@(_:_:_:_:_) = return . MultiVertexID . IS.fromList $ map unGrainID xs
 mkMultiVertexID' _              = Nothing
 
+-- ================================= Get alternative ID ==================================
 
 getAlterFaceID :: FaceID -> FaceID
 getAlterFaceID (FaceID        a b) = AlterFaceID 3     a b
@@ -159,6 +199,7 @@ getAlterVertexID (VertexID a b c d) = let
 getAlterVertexID (MultiVertexID    s) = AlterVertexID 666    s
 getAlterVertexID (AlterVertexID is s) = AlterVertexID (is+1) s
 
+-- ====================================== Disassemble IDs ================================
 
 unGrainID :: GrainID -> Int
 unGrainID (GrainID x) = x
@@ -178,6 +219,7 @@ unVertexID (VertexID   a b c d) = Left  (unGrainID a, unGrainID b, unGrainID c, 
 unVertexID (MultiVertexID    s) = Right s
 unVertexID (AlterVertexID _  s) = Right s
 
+-- ====================================== NFData instance ================================
 
 instance NFData GrainID where
   rnf (GrainID x) = rnf x
@@ -196,6 +238,8 @@ instance NFData VertexID where
   rnf (VertexID  a b c d) = rnf a `seq` rnf b `seq` rnf c `seq` rnf d
   rnf (MultiVertexID   s) = rnf s
   rnf (AlterVertexID _ s) = rnf s
+
+-- ================================= Hashable instance ===================================
 
 instance Hashable GrainID where
   hashWithSalt i (GrainID x) = hashWithSalt i x
@@ -227,6 +271,7 @@ instance Hashable VertexID where
     salt = i `hashWithSalt` is
     in IS.foldl' hashWithSalt salt s
 
+-- ===================================== Sort IDs ========================================
 
 instance Ord FaceID where
   compare (AlterFaceID ai a1 a2) (AlterFaceID bi b1 b2) =
@@ -292,7 +337,7 @@ testFast4 t@(x,y,z,w) = let
   func = all ((== fast4DSort t) . fast4DSort . unlist)
   in func $ L.permutations [x,y,z,w]
 
--- =================================== Graph data types ==================================
+-- ================================ Binary serialization  ================================
 
 instance Binary GrainID
 instance Binary FaceID
@@ -314,44 +359,7 @@ instance (Binary a, Binary k, Hashable k, Eq k) => Binary (HashMap k a) where
     put m = put (HM.size m) >> mapM_ put (HM.toList m)
     get   = liftM HM.fromList get
 
--- | Define the concept of edge (triple line in 3D microstructure or grain boundary in 2D)
-data MicroEdge
-  = DummyEdge
-  | BadEdge  [VertexID]
-  | HalfEdge VertexID
-  | FullEdge VertexID VertexID
-  deriving (Show, Eq, Generic)
-
-data VertexProp a
-  = VertexProp a
-  | NullVertexProp
-  deriving (Show, Generic)
-
-data EdgeProp   a
-  = EdgeProp     MicroEdge a
-  | NullEdgeProp MicroEdge
-  deriving (Show, Generic)
-
-data FaceProp   a
-  = FaceProp     (HashSet EdgeID) a
-  | NullFaceProp (HashSet EdgeID)
-  deriving (Show, Generic)
-
-data GrainProp  a
-  = GrainProp     (HashSet FaceID) a
-  | NullGrainProp (HashSet FaceID)
-  deriving (Show, Generic)
-
--- | Define the microstructure graph with properties associated to
--- which one of the entities: 'GrainProp', 'FaceProp', 'EdgeProp' and 'VertexProp'.
-data MicroGraph g f e v = MicroGraph
-  { microGrains :: HashMap GrainID  (GrainProp  g)
-  , microFaces  :: HashMap FaceID   (FaceProp   f)
-  , microEdges  :: HashMap EdgeID   (EdgeProp   e)
-  , microVertex :: HashMap VertexID (VertexProp v)
-  } deriving (Show, Generic)
-
---  ---------------------------------- GrainHierarchy Class ------------------------------
+-- =========================== GrainHierarchy Class ======================================
 
 -- | Class defining the bottom-up relation for a microstructure graph,
 -- i.e from the Level Vertex to the SubLevel Edge. The basic idea here, is
@@ -364,7 +372,7 @@ class (Hashable (SubLevel l), Eq (SubLevel l))=> GrainHierarchy l where
   -- by updating their reference to the level 'l'
   updateSubLevelProp  :: l -> Maybe (SubLevelProp l a) -> Maybe (SubLevelProp l a)
 
---  -------------------------------- HasPropValue Class ----------------------------------
+-- ============================= HasPropValue Class ======================================
 
 -- | This class defines property values manipulation.
 class HasPropValue prop where
@@ -387,7 +395,7 @@ class HasPropValue prop where
   insertPropValue :: (v -> v1 -> v1) -> v1 -> Maybe (prop v) -> prop v1
   insertPropValue func v = maybe (newPropValue v) (adjustPropValue func v)
 
---  -------------------------------- HasPropConn Class -----------------------------------
+-- ================================ HasPropConn Class ====================================
 
 class (HasPropValue prop)=> HasPropConn prop where
   type PropConn prop :: *
