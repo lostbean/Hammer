@@ -4,6 +4,7 @@
 {-# LANGUAGE TypeFamilies          #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RecordWildCards       #-}
+{-# LANGUAGE DeriveGeneric         #-}
 
 module Hammer.MicroGraph.Types
        ( GrainID
@@ -51,19 +52,24 @@ import qualified Data.List           as L
 import qualified Data.IntSet         as IS
 import qualified Data.Set            as S
 import qualified Data.HashMap.Strict as HM
+import qualified Data.HashSet        as HS
 
-import           Control.DeepSeq
 import           Data.HashMap.Strict (HashMap)
 import           Data.HashSet        (HashSet)
 import           Data.Hashable       (Hashable, hashWithSalt)
 import           Data.IntSet         (IntSet)
 import           Data.Set            (Set)
+import           GHC.Generics        (Generic)
+import           Control.Monad       (liftM)
+
+import           Control.DeepSeq
+import           Data.Binary
 
 --import           Debug.Trace
 
 -- =======================================================================================
 
-newtype GrainID = GrainID Int deriving (Show, Eq, Ord)
+newtype GrainID = GrainID Int deriving (Show, Eq, Ord, Generic)
 
 data FaceID
   = FaceID
@@ -73,7 +79,7 @@ data FaceID
     {-# UNPACK #-} !Int
     {-# UNPACK #-} !GrainID
     {-# UNPACK #-} !GrainID
-  deriving (Show, Eq)
+  deriving (Show, Eq, Generic)
 
 data EdgeID
   = EdgeID
@@ -87,7 +93,7 @@ data EdgeID
     !FaceID
   | MultiEdgeID (Set FaceID)
   | AlterMultiEdgeID {-# UNPACK #-} !Int (Set FaceID)
-  deriving (Show, Eq)
+  deriving (Show, Eq, Generic)
 
 data VertexID
   = VertexID
@@ -97,7 +103,7 @@ data VertexID
     {-# UNPACK #-} !GrainID
   | MultiVertexID IntSet
   | AlterVertexID {-# UNPACK #-} !Int IntSet
-  deriving (Show, Eq)
+  deriving (Show, Eq, Generic)
 
 mkGrainID :: Int -> GrainID
 mkGrainID = GrainID
@@ -288,33 +294,53 @@ testFast4 t@(x,y,z,w) = let
 
 -- =================================== Graph data types ==================================
 
+instance Binary GrainID
+instance Binary FaceID
+instance Binary EdgeID
+instance Binary VertexID
+instance Binary MicroEdge
+instance (Binary a)=> Binary (GrainProp  a)
+instance (Binary a)=> Binary (FaceProp   a)
+instance (Binary a)=> Binary (EdgeProp   a)
+instance (Binary a)=> Binary (VertexProp a)
+
+instance (Binary g, Binary f, Binary e, Binary v)=> Binary (MicroGraph g f e v)
+
+instance (Binary e, Hashable e, Eq e) => Binary (HashSet e) where
+    put m = put (HS.size m) >> mapM_ put (HS.toList m)
+    get   = liftM HS.fromList get
+
+instance (Binary a, Binary k, Hashable k, Eq k) => Binary (HashMap k a) where
+    put m = put (HM.size m) >> mapM_ put (HM.toList m)
+    get   = liftM HM.fromList get
+
 -- | Define the concept of edge (triple line in 3D microstructure or grain boundary in 2D)
 data MicroEdge
   = DummyEdge
   | BadEdge  [VertexID]
   | HalfEdge VertexID
   | FullEdge VertexID VertexID
-  deriving (Show, Eq)
+  deriving (Show, Eq, Generic)
 
 data VertexProp a
   = VertexProp a
   | NullVertexProp
-  deriving (Show)
+  deriving (Show, Generic)
 
 data EdgeProp   a
   = EdgeProp     MicroEdge a
   | NullEdgeProp MicroEdge
-  deriving (Show)
+  deriving (Show, Generic)
 
 data FaceProp   a
   = FaceProp     (HashSet EdgeID) a
   | NullFaceProp (HashSet EdgeID)
-  deriving (Show)
+  deriving (Show, Generic)
 
 data GrainProp  a
   = GrainProp     (HashSet FaceID) a
   | NullGrainProp (HashSet FaceID)
-  deriving (Show)
+  deriving (Show, Generic)
 
 -- | Define the microstructure graph with properties associated to
 -- which one of the entities: 'GrainProp', 'FaceProp', 'EdgeProp' and 'VertexProp'.
@@ -323,7 +349,7 @@ data MicroGraph g f e v = MicroGraph
   , microFaces  :: HashMap FaceID   (FaceProp   f)
   , microEdges  :: HashMap EdgeID   (EdgeProp   e)
   , microVertex :: HashMap VertexID (VertexProp v)
-  } deriving (Show)
+  } deriving (Show, Generic)
 
 --  ---------------------------------- GrainHierarchy Class ------------------------------
 

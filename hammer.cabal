@@ -110,16 +110,17 @@ Library
                 , unordered-containers >= 0.2
                 , hashable             >= 1.2
                 , text                 == 0.11.*
-                , xmlgen               == 0.4.*
                 , bytestring           >= 0.10
                 , vector               == 0.10.*
                 , vector-algorithms    >= 0.5
+                , binary               >= 0.7
                 , primitive            >= 0.5
                 , gamma                >= 0.9
                 , random               == 1.0.*
                 , parallel             >= 3.0
                 , deepseq              >= 1.2
                 , attoparsec           >= 0.10
+                , xmlgen               == 0.4.*
                 , blaze-builder        == 0.3.*
                 , base64-bytestring    == 1.0.*
                 , criterion            >= 0.6
