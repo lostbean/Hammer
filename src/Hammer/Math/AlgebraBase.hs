@@ -5,8 +5,12 @@
 {-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE TypeSynonymInstances       #-}
 {-# LANGUAGE FlexibleContexts           #-}
+{-# LANGUAGE DeriveGeneric              #-}
 
 module Hammer.Math.AlgebraBase  where
+
+import GHC.Generics (Generic)
+import Data.Binary  (Binary)
 
 --------------------------------------------------------------------------------
 -- class declarations
@@ -212,16 +216,26 @@ class MatFunctor a where
 -- ================================== Vec / Mat datatypes ====================================
 
 data Vec2 = Vec2 {-# UNPACK #-} !Double {-# UNPACK #-} !Double
-  deriving (Eq, Read, Show)
+  deriving (Eq, Read, Show, Generic)
 data Vec3 = Vec3 {-# UNPACK #-} !Double {-# UNPACK #-} !Double {-# UNPACK #-} !Double
-  deriving (Eq, Read, Show)
+  deriving (Eq, Read, Show, Generic)
 data Vec4 = Vec4 {-# UNPACK #-} !Double {-# UNPACK #-} !Double {-# UNPACK #-} !Double {-# UNPACK #-} !Double
-  deriving (Eq, Read, Show)
+  deriving (Eq, Read, Show, Generic)
 
 -- | The components are /row/ vectors
-data Mat2 = Mat2 !Vec2 !Vec2              deriving (Eq, Read, Show)
-data Mat3 = Mat3 !Vec3 !Vec3 !Vec3        deriving (Eq, Read, Show)
-data Mat4 = Mat4 !Vec4 !Vec4 !Vec4 !Vec4  deriving (Eq, Read, Show)
+data Mat2 = Mat2 !Vec2 !Vec2              deriving (Eq, Read, Show, Generic)
+data Mat3 = Mat3 !Vec3 !Vec3 !Vec3        deriving (Eq, Read, Show, Generic)
+data Mat4 = Mat4 !Vec4 !Vec4 !Vec4 !Vec4  deriving (Eq, Read, Show, Generic)
+
+-- ================================== Binary Serialization ===============================
+
+instance Binary Vec2
+instance Binary Vec3
+instance Binary Vec4
+
+instance Binary Mat2
+instance Binary Mat3
+instance Binary Mat4
 
 -- ====================================== Derived functions =========================================
 
