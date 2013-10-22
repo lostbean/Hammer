@@ -83,7 +83,7 @@ Executable hammer-profile
                      , base                 == 4.*
                      , vector               == 0.10.*
                      , random               == 1.0.*
-                     , hmatrix              == 0.14.*
+                     , hmatrix              == 0.15.*
                      , unordered-containers == 0.2.*
                      , QuickCheck           >= 2.5
 
@@ -124,6 +124,7 @@ Library
                 , blaze-builder        == 0.3.*
                 , base64-bytestring    == 1.0.*
                 , criterion            >= 0.6
+                , hmatrix              == 0.15.*
 
   exposed-modules:  Hammer.Math.Algebra
                     Hammer.Math.Array
@@ -145,6 +146,10 @@ Library
                     Hammer.Texture.SphereProjection
                     Hammer.Texture.IPF
                     Hammer.Texture.Bingham
+                    Hammer.Texture.SphericalHarmonics
+                    Hammer.Texture.SH.Pyramid
+                    Hammer.Texture.SH.SupportFunctions
+                    Hammer.Texture.SH.Rotation
 
                     Hammer.Reader.ANGReader
                     Hammer.Writer.ANGWriter
@@ -165,6 +170,7 @@ Library
                     Hammer.VoxBox.Types
 
                     Hammer.Texture.BinghamConstant
+
   exposed:        True
   buildable:      True
   hs-source-dirs: src
