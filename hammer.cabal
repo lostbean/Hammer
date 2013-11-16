@@ -144,6 +144,7 @@ Library
                     Hammer.Texture.Symmetry
                     Hammer.Texture.Orientation
                     Hammer.Texture.SphereProjection
+                    Hammer.Texture.TesseractGrid
                     Hammer.Texture.IPF
                     Hammer.Texture.Bingham
                     Hammer.Texture.SphericalHarmonics
