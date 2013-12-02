@@ -43,9 +43,9 @@ class RightModule m r | r -> m, m -> r where
 
 -- I'm not really sure about this.. may actually degrade the performance in some cases?
 {- RULES
-"matrix multiplication left"   forall m n x.  (n .*. m) *. x = n *. (m *. x)
-"matrix multiplication right"  forall m n x.  x .* (m .*. n) = (x .* m) .* n
--}
+ "matrix multiplication left"   forall m n x.  (n .*. m) *. x = n *. (m *. x)
+ "matrix multiplication right"  forall m n x.  x .* (m .*. n) = (x .* m) .* n
+ -}
 
 infixr 7 *.
 infixl 7 .*
@@ -91,7 +91,7 @@ infix 7 &.
 "len/square 2"   forall x.  (len x)^2 = lensqr x
 "norm/square 1"  forall x.  (norm x)*(norm x) = normsqr x
 "norm/square 2"  forall x.  (norm x)^2 = normsqr x
-  #-}
+ #-}
 
 class (MultiVec v, DotProd v) => UnitVector v u | v -> u, u -> v where
   mkNormal         :: v -> u       -- ^ normalizes the input
@@ -137,9 +137,15 @@ class Diagonal s t | t -> s where
   diagMtx :: s -> t
   diagVec :: t -> s
 
-class Matrix m where
+class (Transposable a, Inversable a, IdMatrix a)=> Matrix a
+
+class Transposable m where
   transpose :: m -> m
+
+class Inversable m where
   inverse   :: m -> m
+
+class IdMatrix m where
   idmtx     :: m
 
 {-# RULES
@@ -147,7 +153,7 @@ class Matrix m where
 "inverse is an involution"    forall m. inverse (inverse m) = m
  #-}
 
-class Matrix m => Orthogonal m o | m -> o, o -> m where
+class (Transposable m, IdMatrix m, Inversable m) => Orthogonal m o | m -> o, o -> m where
   fromOrtho     :: o -> m
   toOrthoUnsafe :: m -> o
 
@@ -162,7 +168,7 @@ class Hessenberg m where
 class OrthoMatrix m where
   -- | Calculates the orthogonal matrix using the Householder reflection (or Householder
   -- transformation).
-  orthoRowsHouse :: (Matrix m)=> m -> m
+  orthoRowsHouse :: (Transposable m)=> m -> m
   orthoRowsHouse = transpose . orthoColsHouse . transpose
 
   -- | Implements the modified Gram-Schmidt algorithm to calculate an orthonormal basis of a
@@ -174,7 +180,7 @@ class OrthoMatrix m where
   orthoColsHouse :: m -> m
 
   -- | Same as @orthoRowsBasis@ but applied to the matrix's columns. It has a default instance.
-  orthoColsGram :: (Matrix m)=> m -> m
+  orthoColsGram :: (Transposable m)=> m -> m
   orthoColsGram = transpose . orthoRowsGram . transpose
 
 -- | Outer product (could be unified with Diagonal?)
@@ -213,7 +219,7 @@ class MatFunctor a where
   -- | Zip two elements of the same type with a function.
   matZipWith :: (Double -> Double -> Double) -> a -> a -> a
 
--- ================================== Vec / Mat datatypes ====================================
+-- ================================== Vec / Mat datatypes ================================
 
 data Vec2 = Vec2 {-# UNPACK #-} !Double {-# UNPACK #-} !Double
   deriving (Eq, Read, Show, Generic)
@@ -237,14 +243,12 @@ instance Binary Mat2
 instance Binary Mat3
 instance Binary Mat4
 
--- ====================================== Derived functions =========================================
+-- ====================================== Derived functions ==============================
 
 normalize :: (MultiVec v, DotProd v) => v -> v
 normalize v = scalarMul (1.0/(len v)) v
 
-{-# RULES
-"normalize is idempotent"  forall x. normalize (normalize x) = normalize x
-  #-}
+{-# RULES "normalize is idempotent"  forall x. normalize (normalize x) = normalize x #-}
 
 distance :: (MultiVec v, DotProd v) => v -> v -> Double
 distance x y = norm (x &- y)
@@ -283,12 +287,12 @@ project what dir = what &- dir &* ((what &. dir) / (dir &. dir))
 flipNormal :: UnitVector v n => n -> n
 flipNormal = toNormalUnsafe . neg . fromNormal
 
-qrHouse :: (OrthoMatrix m, MultSemiGroup m, Matrix m)=> m -> (m, m)
+qrHouse :: (OrthoMatrix m, MultSemiGroup m, Transposable m)=> m -> (m, m)
 qrHouse m = (q, r)
   where q = orthoColsHouse m
         r = transpose q .*. m
 
-qrGram :: (OrthoMatrix m, MultSemiGroup m, Matrix m)=> m -> (m, m)
+qrGram :: (OrthoMatrix m, MultSemiGroup m, Transposable m)=> m -> (m, m)
 qrGram m = (transpose q, r)
   where q = orthoRowsGram $ transpose m
         r = q .*. m
@@ -299,7 +303,7 @@ qrGram m = (transpose q, r)
 -- input matrix is a tridiagonal symmetric matrix or a upper Hessenberg
 -- non-symmetric matrix.
 symmEigen :: ( OrthoMatrix m, MultSemiGroup m, MatFunctor m
-             , Diagonal v m , Dimension m , Matrix m
+             , Diagonal v m , Dimension m, Transposable m
              , VecFunctor v Double)=> m -> (m, v)
 symmEigen m = let
   (q0, r0) = qrGram m
@@ -317,7 +321,7 @@ symmEigen m = let
 -- | Householder matrix, see <http://en.wikipedia.org/wiki/Householder_transformation>.
 -- In plain words, it is the reflection to the hyperplane orthogonal to the input vector.
 -- The input vector is normalized before the Householder transformation.
-householder :: (MultiVec v, DotProd v, Matrix m, MultiVec m, Tensor m v) => v -> m
+householder :: (MultiVec v, DotProd v, IdMatrix m, MultiVec m, Tensor m v) => v -> m
 householder v
   | l > 0     = idmtx &- ((2 / l) *& (outer v v))
   | otherwise = idmtx
@@ -352,8 +356,8 @@ schimi a b
     projAonB = b &* ((a &. b) / lenb)
 
 -- | Find the Householder transformation matrix. This is an orthogonal matrix.
-getQ :: ( Num a, Ord a, UnitVector v1 u, Tensor m v1, MultiVec m
-        , Matrix m, HasCoordinates m v1, HasCoordinates v1 a, HasE1 v1)
+getQ :: ( Num a, Ord a, UnitVector v1 u, Tensor m v1, MultiVec m, IdMatrix m
+        , Transposable m, HasCoordinates m v1, HasCoordinates v1 a, HasE1 v1)
         => m -> m
 getQ m = let
   x = _1 $ transpose m

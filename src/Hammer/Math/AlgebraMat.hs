@@ -27,11 +27,17 @@ instance HasCoordinates Mat2 Vec2 where
   _3 _ = error "has only 2 coordinates"
   _4 _ = error "has only 2 coordinates"
 
-instance Matrix Mat2 where
+instance Matrix Mat2
+
+instance Transposable Mat2 where
   transpose (Mat2 row1 row2) =
     Mat2 (Vec2 (_1 row1) (_1 row2))
          (Vec2 (_2 row1) (_2 row2))
+
+instance IdMatrix Mat2 where
   idmtx = Mat2 (Vec2 1 0) (Vec2 0 1)
+
+instance Inversable Mat2 where
   inverse (Mat2 (Vec2 a b) (Vec2 c d)) =
     Mat2 (Vec2 (d*r) (-b*r)) (Vec2 (-c*r) (a*r))
     where r = 1.0 / (a*d - b*c)
@@ -136,13 +142,16 @@ instance HasCoordinates Mat3 Vec3 where
 
 instance Matrix Mat3 where
 
+instance Transposable Mat3 where
   transpose (Mat3 row1 row2 row3) =
     Mat3 (Vec3 (_1 row1) (_1 row2) (_1 row3))
          (Vec3 (_2 row1) (_2 row2) (_2 row3))
          (Vec3 (_3 row1) (_3 row2) (_3 row3))
 
+instance IdMatrix Mat3 where
   idmtx = Mat3 (Vec3 1 0 0) (Vec3 0 1 0) (Vec3 0 0 1)
 
+instance Inversable Mat3 where
   inverse (Mat3 (Vec3 a b c) (Vec3 e f g) (Vec3 i j k)) =
     Mat3 (Vec3 (d11*r) (d21*r) (d31*r))
          (Vec3 (d12*r) (d22*r) (d32*r))
@@ -286,13 +295,19 @@ instance HasCoordinates Mat4 Vec4 where
   _3 (Mat4 _ _ z _) = z
   _4 (Mat4 _ _ _ w) = w
 
-instance Matrix Mat4 where
+instance Matrix Mat4
+
+instance Transposable Mat4 where
   transpose (Mat4 row1 row2 row3 row4) =
     Mat4 (Vec4 (_1 row1) (_1 row2) (_1 row3) (_1 row4))
          (Vec4 (_2 row1) (_2 row2) (_2 row3) (_2 row4))
          (Vec4 (_3 row1) (_3 row2) (_3 row3) (_3 row4))
          (Vec4 (_4 row1) (_4 row2) (_4 row3) (_4 row4))
+
+instance IdMatrix Mat4 where
   idmtx = Mat4 (Vec4 1 0 0 0) (Vec4 0 1 0 0) (Vec4 0 0 1 0) (Vec4 0 0 0 1)
+
+instance Inversable Mat4 where
   inverse = error "inverse/Mat4: not implemented yet"
 
 instance AbelianGroup Mat4 where
