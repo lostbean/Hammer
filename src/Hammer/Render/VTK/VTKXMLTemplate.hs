@@ -1,4 +1,5 @@
-{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE RecordWildCards   #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 module Hammer.Render.VTK.VTKXMLTemplate
        ( renderVTKUni
@@ -15,6 +16,8 @@ import           Data.ByteString.Base64.Lazy  (encode)
 import           Data.Foldable                (foldMap)
 import           Data.Text                    (Text)
 import           Data.Vector.Unboxed          (Vector, (!))
+import           Blaze.ByteString.Builder.ByteString (fromLazyByteString)
+
 
 import           Prelude
 import           Text.XML.Generator
@@ -41,13 +44,13 @@ renderVTKMulti isBinary vtk = let
   nodes       = V.toList $ V.map (renderVTK isBinary) vtk
   in renderDoc dataSetType nodes
 
-renderDoc :: (String, Xml Attr) -> [Xml Elem] -> Xml Doc
+renderDoc :: (Text, Xml Attr) -> [Xml Elem] -> Xml Doc
 renderDoc (dataSetType, attr) node = let
   a = xelem "VTKFile" $ (xattr "type" dataSetType)
       <#> xelem dataSetType (attr <#> xelems node)
   in doc defaultDocInfo a
 
-renderType::(RenderElemVTK a)=> VTKDataSet a -> (String, Xml Attr)
+renderType::(RenderElemVTK a)=> VTKDataSet a -> (Text, Xml Attr)
 renderType dataSet = case dataSet of
   StructPoint  dim orig spc _ -> ("ImageData",        renderWholeExtAttr  dim  <>
                                                       renderOriginAttr    orig <>
@@ -72,7 +75,7 @@ renderSP :: (RenderElemVTK a)=> Bool -> (Int, Int, Int) -> (Double, Double, Doub
          -> (Double, Double, Double) -> Vector a -> [VTKAttrPoint a] -> [VTKAttrCell a] -> Xml Elem
 renderSP isBin ext _ _ ps pointData _ = let
   nodes = [ renderPointData isBin ps pointData ]
-  in xelem "Piece" $ xattrRaw "Extent" (renderExtent ext) <#> xelems nodes
+  in xelem "Piece" $ xattr "Extent" (renderExtent ext) <#> xelems nodes
 
 renderRG :: (RenderElemVTK a)=> Bool -> (Int, Int, Int) -> Vector a -> Vector a
          -> Vector a -> [VTKAttrPoint a] -> [VTKAttrCell a] -> Xml Elem
@@ -84,7 +87,7 @@ renderRG isBin ext@(dx, dy, dz) setX setY setZ pointData cellData = let
   nodes = [ renderPointData   isBin U.empty pointData
           , renderCellData    isBin U.empty vecSerial vecOne vecVertex cellData
           , renderCoordinates isBin setX setY setZ ]
-  in xelem "Piece" $ xattrRaw "Extent" (renderExtent ext) <#> xelems nodes
+  in xelem "Piece" $ xattr "Extent" (renderExtent ext) <#> xelems nodes
 
 
 renderUG :: (RenderElemVTK a)=> Bool -> Vector a -> Vector Int -> Vector Int
@@ -104,7 +107,10 @@ renderUG isBin set cell cellOff cellType pointData cellData = let
 
 renderPointData::(RenderElemVTK a)=> Bool -> Vector a -> [VTKAttrPoint a] -> Xml Elem
 renderPointData isBin pointData attrs = let
-  renderAttr (VTKAttrPoint name func) = renderDataArray isBin (U.imap func pointData) name
+  renderAttr (VTKAttrPoint name func) = let
+    points = U.imap func pointData
+    name_t = toTxt name
+    in renderDataArray isBin points name_t
   in xelem "PointData" $ xelems $ P.map renderAttr attrs
 
 renderCellData :: (RenderElemVTK a)=> Bool -> Vector a -> Vector Int -> Vector Int
@@ -112,7 +118,7 @@ renderCellData :: (RenderElemVTK a)=> Bool -> Vector a -> Vector Int -> Vector I
 renderCellData isBin set cell cellOff cellType attrs = let
   renderAttr (VTKAttrCell name func) = let
     arr = U.imap (mode func) cellOff
-    in renderDataArray isBin arr name
+    in renderDataArray isBin arr (toTxt name)
   mode func i _ = let
     sec = U.map (set!) $
           if i == 0
@@ -166,9 +172,9 @@ renderCoordinates isBin setX setY setZ = let
     , renderCoordinatePoint isBin setZ "z" ]
   in xelem "Coordinates" $ xelems nodes
 
-renderCoordinatePoint :: (RenderElemVTK a)=> Bool -> Vector a -> String -> Xml Elem
+renderCoordinatePoint :: (RenderElemVTK a)=> Bool -> Vector a -> Text -> Xml Elem
 renderCoordinatePoint isBin points dir = let
-  name = dir P.++ "_coordinate"
+  name = dir <> "_coordinate"
   in renderDataArray isBin points name
 
 renderPoints :: (RenderElemVTK a)=> Bool -> Vector a -> Xml Elem
@@ -176,11 +182,11 @@ renderPoints isBin points = let
   child = renderDataArray isBin points "Points"
   in xelem "Points" child
 
-renderDataArray :: (RenderElemVTK a)=> Bool -> Vector a -> String -> Xml Elem
+renderDataArray :: (RenderElemVTK a)=> Bool -> Vector a -> Text -> Xml Elem
 renderDataArray isBin points name = let
   size = encode . BB.toLazyByteString . BB.word32BE . fromIntegral $ U.length points
   vecRender
-    | isBin = (size <>) . encode . BB.toLazyByteString . foldMap renderBinaryPoint . U.toList
+    | isBin     = (size <>) . encode . BB.toLazyByteString . foldMap renderBinaryPoint . U.toList
     | otherwise = BB.toLazyByteString . foldMap renderPoint . U.toList
   format
     | isBin     = "binary"
@@ -190,10 +196,11 @@ renderDataArray isBin points name = let
          , xattr "format"             format
          , xattr "NumberOfComponents" (getNumComp points)
          ]
-  in xelem "DataArray" ((xattrs attr) <#> (xtextRaw $ vecRender points))
+  runrender = xtextRaw . fromLazyByteString . vecRender
+  in xelem "DataArray" ((xattrs attr) <#> runrender points)
 
-getNumType :: (RenderPoint a, U.Unbox a)=> Vector a -> String
-getNumType = renderNumType . pointNumberType . U.head
+getNumType :: (RenderPoint a, U.Unbox a)=> Vector a -> Text
+getNumType = toTxt . renderNumType . pointNumberType . U.head
 
 getNumComp :: (RenderPoint a, U.Unbox a)=> Vector a -> Text
 getNumComp =  toTxt . pointNumberComp . U.head

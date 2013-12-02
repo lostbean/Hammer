@@ -29,10 +29,10 @@ Flag corrector
 Executable ANGCorrector
     main-is:           ANGCorrector.hs
     if flag(corrector)
-       build-depends:  optparse-applicative >= 0.5
-                     , hammer
+       build-depends:  hammer
                      , base                 == 4.*
-                     , vector               == 0.10.*
+                     , optparse-applicative >= 0.5
+                     , vector               >= 0.10
 
        hs-source-dirs: profile
 
@@ -52,9 +52,9 @@ Executable hammer-benchmark
     if flag(test)
        build-depends:  hammer
                      , base                 == 4.*
-                     , vector               == 0.10.*
-                     , random               == 1.0.*
-                     , unordered-containers == 0.2.*
+                     , vector               >= 0.10
+                     , random               >= 1.0
+                     , unordered-containers >= 0.2
                      , containers           >= 0.4
                      , criterion            >= 0.6
 
@@ -79,12 +79,12 @@ Executable hammer-profile
     if flag(test)
        build-depends:  optparse-applicative >= 0.5
                      , hammer
-                     , array                == 0.4.*
+                     , array                >= 0.4
                      , base                 == 4.*
-                     , vector               == 0.10.*
-                     , random               == 1.0.*
-                     , hmatrix              == 0.15.*
-                     , unordered-containers == 0.2.*
+                     , vector               >= 0.10
+                     , random               >= 1.0
+                     , hmatrix              >= 0.15
+                     , unordered-containers >= 0.2
                      , QuickCheck           >= 2.5
 
        hs-source-dirs: profile
@@ -105,26 +105,26 @@ Executable hammer-profile
 
 Library
   build-depends:  base                 == 4.*
-                , array                == 0.4.*
-                , containers           >= 0.4.2.1 && < 0.6
+                , array                >= 0.4
+                , containers           >= 0.4.2.1
                 , unordered-containers >= 0.2
                 , hashable             >= 1.2
-                , text                 == 0.11.*
+                , text                 >= 0.11
                 , bytestring           >= 0.10
-                , vector               == 0.10.*
+                , vector               >= 0.10
                 , vector-algorithms    >= 0.5
                 , binary               >= 0.7
                 , primitive            >= 0.5
                 , gamma                >= 0.9
-                , random               == 1.0.*
+                , random               >= 1.0
                 , parallel             >= 3.0
                 , deepseq              >= 1.2
-                , attoparsec           >= 0.10
-                , xmlgen               == 0.4.*
-                , blaze-builder        == 0.3.*
-                , base64-bytestring    == 1.0.*
+                , attoparsec           >= 0.8
+                , xmlgen               >= 0.6
+                , blaze-builder        >= 0.3
+                , base64-bytestring    >= 1.0
                 , criterion            >= 0.6
-                , hmatrix              == 0.15.*
+                , hmatrix              >= 0.15
 
   exposed-modules:  Hammer.Math.Algebra
                     Hammer.Math.Array
@@ -148,9 +148,11 @@ Library
                     Hammer.Texture.IPF
                     Hammer.Texture.Bingham
                     Hammer.Texture.SphericalHarmonics
+
                     Hammer.Texture.SH.Pyramid
                     Hammer.Texture.SH.SupportFunctions
                     Hammer.Texture.SH.Rotation
+                    Hammer.Texture.SH.HyperSphere
 
                     Hammer.Reader.ANGReader
                     Hammer.Writer.ANGWriter
