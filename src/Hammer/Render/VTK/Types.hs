@@ -2,6 +2,7 @@
 {-# LANGUAGE RecordWildCards           #-}
 {-# LANGUAGE TypeSynonymInstances      #-}
 {-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE OverloadedStrings         #-}
 
 module Hammer.Render.VTK.Types where
 
@@ -30,7 +31,7 @@ data VTKNumType
   | VTK_Float
   deriving (Show, Eq)
 
-renderNumType :: VTKNumType -> String
+renderNumType :: VTKNumType -> Text
 renderNumType x = case x of
   VTK_UInt8 -> "UInt8"
   VTK_UInt  -> "UInt32"

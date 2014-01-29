@@ -200,7 +200,7 @@ renderDataArray isBin points name = let
   in xelem "DataArray" ((xattrs attr) <#> runrender points)
 
 getNumType :: (RenderPoint a, U.Unbox a)=> Vector a -> Text
-getNumType = toTxt . renderNumType . pointNumberType . U.head
+getNumType = renderNumType . pointNumberType . U.head
 
 getNumComp :: (RenderPoint a, U.Unbox a)=> Vector a -> Text
 getNumComp =  toTxt . pointNumberComp . U.head
