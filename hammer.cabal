@@ -1,5 +1,5 @@
 name:           hammer
-version:        0.2.0
+version:        0.3.0
 cabal-version:  >= 1.8
 build-type:     Simple
 license:        GPL-3
@@ -9,9 +9,8 @@ stability:      experimental
 homepage:
 package-url:
 bug-reports:    talktoedgar@gmail.com
-synopsis:       Basic tools for microstructure and texture in polycrystal materials
+synopsis:       Basic tools for microstructure in polycrystal materials
 description: Library with tools for metalurgical research. Includes:
- - Rotation representation and opreretions
  - Vector and matrix operations
  - Group conected components using graphs
  Aim of this library is also performance and multi-core ready.
