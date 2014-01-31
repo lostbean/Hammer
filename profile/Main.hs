@@ -20,24 +20,11 @@ import           Hammer.VoxBox.Base
 import           Hammer.VoxBox.VoxConnFinder
 import           Hammer.VoxBox.MicroVoxel
 
-<<<<<<< HEAD
-import           Hammer.Texture.SphericalHarmonics
-
-import           TestGrainFinder
-import           TestTexture
-=======
-import           TestGrainFinder
->>>>>>> refs/heads/goTex
-
 data Tester =
   Tester
   { run_test_GrainFinder    :: Maybe String
   , run_profile_GrainFinder :: Maybe String
   , run_profile_VTKRender   :: Maybe String
-<<<<<<< HEAD
-  , run_test_HSH            :: Bool
-=======
->>>>>>> refs/heads/goTex
   , run_test_suit           :: Bool
   } deriving (Show)
 
@@ -59,13 +46,6 @@ tester = Tester
       <> metavar "VTK_OUT"
       <> help "Profile VTKRender module" )
    <*> switch
-<<<<<<< HEAD
-      (  long "test-HSH"
-      <> short 's'
-      <> help "Run test on HSH." )
-   <*> switch
-=======
->>>>>>> refs/heads/goTex
       (  long "test-suit"
       <> short 't'
       <> help "Run test suit." )
@@ -81,18 +61,8 @@ main = execParser opts >>= run
 run :: Tester -> IO ()
 run Tester{..} = do
   if run_test_suit
-    then do
-    runChecker
-<<<<<<< HEAD
-    runTextureChecker
+    then runChecker
     else putStrLn "Skiping test suit."
-  if run_test_HSH
-    then do
-    testHSH
-    else putStrLn "Skiping HSH test."
-=======
-    else putStrLn "Skiping test suit."
->>>>>>> refs/heads/goTex
   case run_profile_GrainFinder of
     Just x -> profile_GrainFinder x
     _      -> putStrLn "Skiping GrainFinder profile."
