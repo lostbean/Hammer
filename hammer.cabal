@@ -21,31 +21,6 @@ Flag test
     Description:        Build the exectable using command line.
     Default:            False
 
-Flag corrector
-    Description:        Build the ANGCorrector exectable.
-    Default:            False
-
-Executable ANGCorrector
-    main-is:           ANGCorrector.hs
-    if flag(corrector)
-       build-depends:  hammer
-                     , base                 == 4.*
-                     , optparse-applicative >= 0.5
-                     , vector               >= 0.10
-
-       hs-source-dirs: profile
-
-       ghc-options:
-                       -Wall
-                       -O2
-                       -rtsopts
-                       -threaded
-                       -- -eventlog
-       Buildable:      True
-
-    else
-       Buildable:      False
-
 Executable hammer-benchmark
     main-is:           Benchmark.hs
     if flag(test)
