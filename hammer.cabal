@@ -116,16 +116,13 @@ Library
                 , binary                  >= 0.7
                 , vector-binary-instances >= 0.2
                 , primitive               >= 0.5
-                , gamma                   >= 0.9
                 , random                  >= 1.0
                 , parallel                >= 3.0
                 , deepseq                 >= 1.2
-                , attoparsec              >= 0.8
                 , xmlgen                  >= 0.6
                 , blaze-builder           >= 0.3
                 , base64-bytestring       >= 1.0
                 , criterion               >= 0.6
-                , hmatrix                 >= 0.15
 
   exposed-modules:  Hammer.Math.Algebra
                     Hammer.Math.Array
@@ -142,22 +139,6 @@ Library
                     Hammer.VoxBox.VoxConnFinder
                     Hammer.VoxBox.MicroVoxel
 
-                    Hammer.Texture.Symmetry
-                    Hammer.Texture.Orientation
-                    Hammer.Texture.SphereProjection
-                    Hammer.Texture.TesseractGrid
-                    Hammer.Texture.IPF
-                    Hammer.Texture.Bingham
-                    Hammer.Texture.SphericalHarmonics
-
-                    Hammer.Texture.SH.Pyramid
-                    Hammer.Texture.SH.SupportFunctions
-                    Hammer.Texture.SH.Rotation
-                    Hammer.Texture.SH.HyperSphere
-
-                    Hammer.Reader.ANGReader
-                    Hammer.Writer.ANGWriter
-
   other-modules:
                     Hammer.Math.AlgebraBase
                     Hammer.Math.AlgebraVec
@@ -172,8 +153,6 @@ Library
 
                     Hammer.VoxBox.VoxConnTypes
                     Hammer.VoxBox.Types
-
-                    Hammer.Texture.BinghamConstant
 
   exposed:        True
   buildable:      True
