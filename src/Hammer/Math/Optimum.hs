@@ -7,6 +7,7 @@ module Hammer.Math.Optimum
        ( lineSearch
        , bfgs
        , defaultBFGS
+       , BFGScfg (..) 
        ) where
 
 import Hammer.Math.Algebra
