@@ -96,8 +96,8 @@ vboxTest = VoxBox { dimension = mkStdVoxBoxRange (VoxBoxDim 21   15   5)
                   , spacing   = VoxelDim      1    1    1 
                   , grainID   = g }
   where
-    g :: V.Vector Int
-    g = V.fromList
+    g :: VU.Vector Int
+    g = VU.fromList
           [2,2,2,2,2,2,2,2,2,2,4,4,4,4,4,4,4,4,4,4,4
           ,2,2,2,2,2,2,2,2,2,2,4,4,4,4,4,4,4,4,4,4,4
           ,2,2,2,2,2,2,2,2,2,2,4,4,4,4,4,4,4,4,4,4,4

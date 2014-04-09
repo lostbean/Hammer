@@ -64,9 +64,10 @@ module Hammer.VoxBox.Base
   ) where
 
 import qualified Data.Vector         as V
+import qualified Data.Vector.Unboxed as U
 
 import           Data.Bits           (complement, (.&.), (.|.))
-import           Data.Vector         (Vector, (!))
+import           Data.Vector         (Vector)
 
 import           Hammer.Math.Algebra
 import           Hammer.VoxBox.Types
@@ -153,15 +154,15 @@ vbr %#? i = getVoxelPos vbr i
   in (q, r)
 
 {-# INLINE (#!) #-}
-(#!) :: VoxBox a -> VoxelPos -> a
-VoxBox{..} #! pos = grainID ! (unsafeGetVoxelID dimension pos)
+(#!) :: (U.Unbox a)=> VoxBox a -> VoxelPos -> a
+VoxBox{..} #! pos = grainID U.! (unsafeGetVoxelID dimension pos)
 
 {-# INLINE (#!?) #-}
-(#!?) :: VoxBox a -> VoxelPos -> Maybe a
+(#!?) :: (U.Unbox a)=> VoxBox a -> VoxelPos -> Maybe a
 VoxBox{..} #!? pos
   | checkPosBound dimension pos = let
     i = unsafeGetVoxelID dimension pos
-    in return $ grainID ! i
+    in return $ grainID U.! i
   | otherwise                   = Nothing
 
 -- ======================== Directions functions ==================================
