@@ -17,6 +17,7 @@ module Hammer.VoxBox.VoxConnFinder
 
 import qualified Data.HashMap.Strict            as HM
 import qualified Data.Vector                    as V
+import qualified Data.Vector.Unboxed            as U
 
 import           Data.HashMap.Strict            (HashMap)
 import           Data.Vector                    (Vector)
@@ -45,17 +46,17 @@ resetGrainIDs (vb, hmap) = let
   map1    = HM.fromList $ zipWith (\s (g,_) -> (g, s)) shuffle gv
   map2    = HM.fromList $ zipWith (\s (_,v) -> (s, v)) shuffle gv
   foo x   = maybe x mkGrainID (HM.lookup (unGrainID x) map1)
-  in (vb { grainID = V.map foo (grainID vb) }, map2)
+  in (vb { grainID = U.map foo (grainID vb) }, map2)
 
 -- | Function to find grains in voxels with 'Int' property. Based on 'finderVoxConn' for
 -- 'Vector' 'Int'.
-grainFinder :: (a -> a -> Bool) -> VoxBox a ->
+grainFinder :: (U.Unbox a)=> (a -> a -> Bool) -> VoxBox a ->
                Maybe (VoxBox GrainID, HashMap Int (Vector VoxelPos))
 grainFinder isEqual vb@VoxBox{..} = let
   found = finderVoxConn isEqual grainID dimension
   in case (voxConnMap found, voxConnList found) of
     (Just m, Just l) -> let
-      new_vec  = V.map mkGrainID m
+      new_vec  = U.map mkGrainID m
       in return (vb { grainID = new_vec }, l)
     _ -> Nothing
 

@@ -13,7 +13,7 @@ import qualified Data.Vector.Generic.Mutable as M
 import Control.DeepSeq
 import Control.Monad                   (liftM)
 import Data.Hashable                   (Hashable, hashWithSalt)
-import Data.Vector                     (Vector)
+import Data.Vector.Unboxed             (Vector)
 
 import Foreign
 

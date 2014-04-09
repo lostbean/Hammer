@@ -1,10 +1,11 @@
-{-# LANGUAGE FlexibleInstances     #-}
-{-# LANGUAGE FlexibleContexts      #-}
-{-# LANGUAGE UndecidableInstances  #-}
-{-# LANGUAGE TypeFamilies          #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE RecordWildCards       #-}
-{-# LANGUAGE DeriveGeneric         #-}
+{-# LANGUAGE FlexibleInstances          #-}
+{-# LANGUAGE FlexibleContexts           #-}
+{-# LANGUAGE UndecidableInstances       #-}
+{-# LANGUAGE TypeFamilies               #-}
+{-# LANGUAGE MultiParamTypeClasses      #-}
+{-# LANGUAGE RecordWildCards            #-}
+{-# LANGUAGE DeriveGeneric              #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
 module Hammer.MicroGraph.Types
        ( GrainID
@@ -65,11 +66,16 @@ import           Control.Monad       (liftM)
 import           Control.DeepSeq
 import           Data.Binary
 
+import           Data.Vector.Generic.Base
+import           Data.Vector.Generic.Mutable
+import qualified Data.Vector.Unboxed as U
+
 --import           Debug.Trace
 
 -- =================================== Graph data types ==================================
 
-newtype GrainID = GrainID Int deriving (Show, Eq, Ord, Generic)
+newtype GrainID = GrainID Int deriving ( Show, Eq, Ord, Generic
+                                       , Vector U.Vector, MVector U.MVector, U.Unbox)
 
 data FaceID
   = FaceID
