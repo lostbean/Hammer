@@ -104,14 +104,13 @@ Library
                     Hammer.Math.SparseMatrix
                     Hammer.Math.Optimum
 
-                    Hammer.Render.VTK.VTKRender
-                    Hammer.Render.VoxBoxVTK
+                    Hammer.VTK
+                    Hammer.VTK.VoxBox
 
                     Hammer.MicroGraph
 
-                    Hammer.VoxBox.Base
-                    Hammer.VoxBox.VoxConnFinder
-                    Hammer.VoxBox.MicroVoxel
+                    Hammer.VoxBox
+                    Hammer.VoxConn
 
   other-modules:
                     Hammer.Math.AlgebraBase
@@ -119,13 +118,14 @@ Library
                     Hammer.Math.AlgebraMat
                     Hammer.Math.Unboxed
 
-                    Hammer.Render.VTK.VTKXMLTemplate
-                    Hammer.Render.VTK.Types
+                    Hammer.VTK.VTKXMLTemplate
+                    Hammer.VTK.Types
 
                     Hammer.MicroGraph.Types
                     Hammer.MicroGraph.Base
+                    Hammer.MicroGraph.GraphBuilder
 
-                    Hammer.VoxBox.VoxConnTypes
+                    Hammer.VoxConn.Types
                     Hammer.VoxBox.Types
 
   exposed:        True

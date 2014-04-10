@@ -13,7 +13,7 @@
 -- One of the more important viewers for VTK files is Paraview <http://www.paraview.org/>.
 -- More information about the VTK format can be found here:
 -- <http://www.vtk.org/VTK/img/file-formats.pdf>
-module Hammer.Render.VTK.VTKRender
+module Hammer.VTK
   ( VTK (..)
     -- * Write to file
   , writeUniVTKfile
@@ -48,8 +48,8 @@ import           Data.IntMap                      (IntMap)
 import           Data.Text                        (pack)
 import           Data.Vector.Unboxed              (Vector)
 
-import           Hammer.Render.VTK.Types
-import           Hammer.Render.VTK.VTKXMLTemplate
+import           Hammer.VTK.Types
+import           Hammer.VTK.VTKXMLTemplate
 
 -- =======================================================================================
 

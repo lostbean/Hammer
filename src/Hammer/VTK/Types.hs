@@ -4,7 +4,7 @@
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE OverloadedStrings         #-}
 
-module Hammer.Render.VTK.Types where
+module Hammer.VTK.Types where
 
 import qualified Data.ByteString.Lazy.Builder       as BB
 import qualified Data.ByteString.Lazy.Builder.ASCII as BBA

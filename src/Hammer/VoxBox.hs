@@ -4,7 +4,7 @@
 {-# LANGUAGE RecordWildCards       #-}
 {-# LANGUAGE TypeFamilies          #-}
 
-module Hammer.VoxBox.Base
+module Hammer.VoxBox
   ( module Hammer.VoxBox.Types
   , (%@), (%@?), (%#), (%#?), (#!), (#!?)
   , checkPosBound

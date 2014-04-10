@@ -3,7 +3,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE TypeFamilies #-}
 
-module Hammer.Render.VoxBoxVTK where
+module Hammer.VTK.VoxBox where
 
 import qualified Data.List             as L
 import qualified Data.Vector           as V
@@ -15,10 +15,8 @@ import           Data.Vector.Unboxed   (Vector, Unbox)
 
 import           Hammer.MicroGraph
 import           Hammer.Math.Algebra
-import           Hammer.VoxBox.Base
-import           Hammer.VoxBox.MicroVoxel
-
-import           Hammer.Render.VTK.VTKRender
+import           Hammer.VoxBox
+import           Hammer.VTK
 
 import           Debug.Trace
 --dbg a = trace ("@@@@@@@>> " ++ show a) a

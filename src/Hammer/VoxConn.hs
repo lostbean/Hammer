@@ -5,7 +5,7 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -fno-warn-unused-do-bind #-}
 
-module Hammer.VoxBox.VoxConnFinder
+module Hammer.VoxConn
        ( grainFinder
        , finderVoxConn
        , resetGrainIDs
@@ -26,9 +26,10 @@ import           Control.DeepSeq
 import           Control.Parallel.Strategies
 
 import           Hammer.Math.Array              (shuffleVector)
-import           Hammer.MicroGraph              (GrainID, mkGrainID, unGrainID)
-import           Hammer.VoxBox.Base
-import           Hammer.VoxBox.VoxConnTypes
+import           Hammer.MicroGraph.Types        (GrainID, mkGrainID, unGrainID)
+import           Hammer.VoxBox
+
+import           Hammer.VoxConn.Types
 
 --import           Debug.Trace
 --dbg t a = trace (t ++ show a) a

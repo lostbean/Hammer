@@ -1,7 +1,7 @@
 {-# LANGUAGE RecordWildCards   #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module Hammer.Render.VTK.VTKXMLTemplate
+module Hammer.VTK.VTKXMLTemplate
        ( renderVTKUni
        , renderVTKMulti
        ) where
@@ -18,12 +18,11 @@ import           Data.Text                    (Text)
 import           Data.Vector.Unboxed          (Vector, (!))
 import           Blaze.ByteString.Builder.ByteString (fromLazyByteString)
 
-
 import           Prelude
 import           Text.XML.Generator
 
 import           Hammer.Math.Algebra          ()
-import           Hammer.Render.VTK.Types
+import           Hammer.VTK.Types
 
 --import           Debug.Trace
 --dbg a = trace ("::::::>> " ++ show a) a

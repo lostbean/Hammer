@@ -15,11 +15,10 @@ import           Prelude
 import           System.Random
 
 import           Hammer.MicroGraph
-import           Hammer.Render.VTK.VTKRender
-import           Hammer.Render.VoxBoxVTK
-import           Hammer.VoxBox.Base
-import           Hammer.VoxBox.VoxConnFinder
-import           Hammer.VoxBox.MicroVoxel
+import           Hammer.VTK
+import           Hammer.VTK.VoxBox
+import           Hammer.VoxBox
+import           Hammer.VoxConn
 
 import           TestGrainFinder
 

@@ -4,7 +4,7 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
-module Hammer.VoxBox.MicroVoxel
+module Hammer.MicroGraph.GraphBuilder
        ( MicroVoxel
        , getMicroVoxel
        , benchmarkMicroVoxel
@@ -23,9 +23,10 @@ import           Hammer.Math.SparseMatrix (Sparse3)
 import           Data.List
 import           Criterion
 
-import           Hammer.MicroGraph
-import           Hammer.VoxBox.Base
-import           Hammer.VoxBox.VoxConnFinder
+import           Hammer.MicroGraph.Base
+import           Hammer.MicroGraph.Types
+import           Hammer.VoxConn
+import           Hammer.VoxBox
 
 import           Debug.Trace
 --dbg a = trace ("::::::>> " ++ show a) a

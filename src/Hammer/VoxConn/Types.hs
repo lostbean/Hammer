@@ -6,7 +6,7 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -fno-warn-unused-do-bind #-}
 
-module Hammer.VoxBox.VoxConnTypes where
+module Hammer.VoxConn.Types where
 
 import qualified Data.HashMap.Strict            as HM
 import qualified Data.IntMap                    as IM
@@ -26,7 +26,7 @@ import           Hammer.Math.SparseMatrix       (Sparse3)
 
 import           Control.DeepSeq
 
-import           Hammer.VoxBox.Base
+import           Hammer.VoxBox
 
 --import           Debug.Trace
 --dbg t a = trace (t ++ show a) a
