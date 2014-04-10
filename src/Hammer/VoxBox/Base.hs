@@ -434,10 +434,10 @@ getRangePos :: VoxBoxRange -> [VoxelPos]
 getRangePos VoxBoxRange{..} = let
   VoxelPos ix iy iz = vbrOrigin
   (dx, dy, dz)      = getVoxBoxDim vbrDim
-  xmax = ix + dx -1
-  ymax = iy + dy -1
-  zmax = iz + dz -1
-  in [VoxelPos x y z | z <- [ix..zmax], y <- [iy..ymax], x <- [iz..xmax]]
+  xmax = ix + dx - 1
+  ymax = iy + dy - 1
+  zmax = iz + dz - 1
+  in [VoxelPos x y z | z <- [iz..zmax], y <- [iy..ymax], x <- [ix..xmax]]
 
 -- ================================ Fast and compact list of Voxel =======================
 
