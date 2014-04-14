@@ -124,6 +124,7 @@ Library
                     Hammer.MicroGraph.Types
                     Hammer.MicroGraph.Base
                     Hammer.MicroGraph.GraphBuilder
+                    Hammer.MicroGraph.Graph
 
                     Hammer.VoxConn.Types
                     Hammer.VoxBox.Types
