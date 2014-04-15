@@ -14,8 +14,9 @@ import qualified Data.Vector.Generic.Mutable as M
 
 import           Foreign
 import           System.Random
+import           Control.DeepSeq
 
-import           Text.Printf                 (printf)
+import           Text.Printf (printf)
 
 import           Hammer.Math.AlgebraBase
 import           Hammer.Math.Unboxed ()
@@ -319,3 +320,13 @@ instance Extend Vec3 Vec4 where
   trimTail (Vec4 x y z _)       = Vec3 x y z
 
 --------------------------------------------------------------------------------
+-- NFData
+
+instance NFData Vec2 where
+  rnf (Vec2 a b) = a `seq` b `seq` ()
+
+instance NFData Vec3 where
+  rnf (Vec3 a b c) = a `seq` b `seq` c `seq` ()
+
+instance NFData Vec4 where
+  rnf (Vec4 a b c d) = a `seq` b `seq` c `seq` d `seq` ()

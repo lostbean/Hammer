@@ -14,6 +14,7 @@ import           Data.List                   (foldl')
 
 import           Foreign
 import           System.Random
+import           Control.DeepSeq
 
 import           Hammer.Math.AlgebraBase
 import           Hammer.Math.AlgebraVec()
@@ -466,6 +467,18 @@ instance Extend Mat3 Mat4 where
   extendTailZero   (Mat3 p q r) = Mat4 (extendTailZero p) (extendTailZero q) (extendTailZero r) zero
   extendTailWith w (Mat3 p q r) = Mat4 (extendTailZero p) (extendTailZero q) (extendTailZero r) (Vec4 0 0 0 w)
   trimTail (Mat4 p q r _) = Mat3 (trimTail p) (trimTail q) (trimTail r)
+
+--------------------------------------------------------------------------------
+-- NFData
+
+instance NFData Mat2 where
+  rnf (Mat2 a b) = a `seq` b `seq` ()
+
+instance NFData Mat3 where
+  rnf (Mat3 a b c) = a `seq` b `seq` c `seq` ()
+
+instance NFData Mat4 where
+  rnf (Mat4 a b c d) = a `seq` b `seq` c `seq` d `seq` ()
 
 -- ================================== Test ==================================
 
