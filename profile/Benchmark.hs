@@ -15,6 +15,7 @@ import           Hammer.VTK
 import           Hammer.VTK.VoxBox
 import           Hammer.VoxBox
 import           Hammer.VoxConn
+import           Hammer.Math.Algebra
 
 getRandList :: (RandomGen g, Random a)=> g -> Int -> [a]
 getRandList _ 0 = []
@@ -38,10 +39,14 @@ testvec :: Int -> V.Vector Int
 testvec n =
     L.foldl' (\m k -> k `V.cons` m) V.empty [0..n]
 
-
-
 main :: IO ()
 main = do
+  ms <- (VU.replicateM 10000 randomIO :: IO (VU.Vector Mat4))
+  let func = VU.foldl (&+) zero . VU.map (fst . symmEigen)
+  print $ func ms
+
+main2 :: IO ()
+main2 = do
     gen <- getStdGen
     let
       inData1 = getRandList gen size :: [Int]

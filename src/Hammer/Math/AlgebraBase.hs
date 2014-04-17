@@ -245,6 +245,10 @@ instance Binary Mat4
 
 -- ====================================== Derived functions ==============================
 
+-- | Since unit vectors are not a group, we need a separate function.
+flipNormal :: UnitVector v n => n -> n
+flipNormal = toNormalUnsafe . neg . fromNormal
+
 normalize :: (MultiVec v, DotProd v) => v -> v
 normalize v = scalarMul (1.0/(len v)) v
 
@@ -270,62 +274,7 @@ acosSafe x
   | x >  1 && x < ( 1.000000000001) = acos 1
   | x < -1 && x > (-1.000000000001) = acos (-1)
   | otherwise                       = acos x
-{-# INLINE acosSafe #-}
 
--- | Projects the first vector down to the hyperplane orthogonal to the second (unit) vector
-project' :: (MultiVec v, UnitVector v u, DotProd v) => v -> u -> v
-project' what dir = projectUnsafe what (fromNormal dir)
-
--- | Direction (second argument) is assumed to be a /unit/ vector!
-projectUnsafe :: (MultiVec v, DotProd v) => v -> v -> v
-projectUnsafe what dir = what &- dir &* (what &. dir)
-
-project :: (MultiVec v, DotProd v) => v -> v -> v
-project what dir = what &- dir &* ((what &. dir) / (dir &. dir))
-
--- | Since unit vectors are not a group, we need a separate function.
-flipNormal :: UnitVector v n => n -> n
-flipNormal = toNormalUnsafe . neg . fromNormal
-
-qrHouse :: (OrthoMatrix m, MultSemiGroup m, Transposable m)=> m -> (m, m)
-qrHouse m = (q, r)
-  where q = orthoColsHouse m
-        r = transpose q .*. m
-
-qrGram :: (OrthoMatrix m, MultSemiGroup m, Transposable m)=> m -> (m, m)
-qrGram m = (transpose q, r)
-  where q = orthoRowsGram $ transpose m
-        r = q .*. m
-
--- | Calculates the eigenpairs (eigenvalues and eigenvector) of a given
--- *symmetric* matrix. It uses only OrthoMatrix decomposition. It can obtain correct
--- eigenvalues only (the eigenvectors should be post processed) if the
--- input matrix is a tridiagonal symmetric matrix or a upper Hessenberg
--- non-symmetric matrix.
-symmEigen :: ( OrthoMatrix m, MultSemiGroup m, MatFunctor m
-             , Diagonal v m , Dimension m, Transposable m
-             , VecFunctor v Double)=> m -> (m, v)
-symmEigen m = let
-  (q0, r0) = qrGram m
-  eigen !u !a !count
-    | count <= 0      = (u, diagVec a)
-    | offdiag < limit = (u, diagVec a)
-    | otherwise       = eigen (u .*. q) (r .*. q) (count - 1)
-    where
-      (diag, offdiag) = diagOffDiag a
-      epsilon = 1e-10
-      limit   = max (epsilon * diag) epsilon
-      (q, r)  = qrGram a
-  in eigen q0 (r0 .*. q0) (10 * dim m)
-
--- | Householder matrix, see <http://en.wikipedia.org/wiki/Householder_transformation>.
--- In plain words, it is the reflection to the hyperplane orthogonal to the input vector.
--- The input vector is normalized before the Householder transformation.
-householder :: (MultiVec v, DotProd v, IdMatrix m, MultiVec m, Tensor m v) => v -> m
-householder v
-  | l > 0     = idmtx &- ((2 / l) *& (outer v v))
-  | otherwise = idmtx
-  where l = normsqr v
 
 mkVec2 :: (Double, Double) -> Vec2
 mkVec3 :: (Double, Double, Double) -> Vec3
@@ -342,50 +291,3 @@ unVec4 :: Vec4 -> (Double, Double, Double, Double)
 unVec2 (Vec2 x y)     = (x,y)
 unVec3 (Vec3 x y z)   = (x,y,z)
 unVec4 (Vec4 x y z w) = (x,y,z,w)
-
--- ============================ DO NOT EXPORT OrthoMatrix algorithms ========================
-
--- | Find the orthogonal component of the fisrt vector in relation to
--- the second vector. Used by the Gram-Schimidt algorithm.
-schimi :: (MultiVec g, DotProd g)=> g -> g -> g
-schimi a b
-  | lenb > 0  = a &- projAonB
-  | otherwise = a
-  where
-    lenb     = b &. b
-    projAonB = b &* ((a &. b) / lenb)
-
--- | Find the Householder transformation matrix. This is an orthogonal matrix.
-getQ :: ( Num a, Ord a, UnitVector v1 u, Tensor m v1, MultiVec m, IdMatrix m
-        , Transposable m, HasCoordinates m v1, HasCoordinates v1 a, HasE1 v1)
-        => m -> m
-getQ m = let
-  x = _1 $ transpose m
-  l = norm x
-  a = if _1 x > 0 then -l else l
-  u = x &+ vece1 a
-  in householder u
-
--- | The Gershgorin circle is the sum of the absolute values of the non-diagonal entries.
-diagOffDiag :: (VecFunctor a1 Double, MatFunctor a, Diagonal a1 a)=> a -> (Double, Double)
-diagOffDiag m = let
-  diag  = vecFoldr (+) $ vecMap abs (diagVec m)
-  total = matFoldr (+) $ matMap abs m
-  in (diag, total - diag)
-
-safeNormalize :: (MultiVec v, DotProd v) => v -> v -> v
-safeNormalize fallback vec
-  | l > 0     = vec &* (1 / l)
-  | otherwise = fallback
-  where l = norm vec
-
-class HasE1 a where
-  vece1 :: Double -> a
-instance HasE1 Vec2 where
-  vece1 x = Vec2 x 0
-instance HasE1 Vec3 where
-  vece1 x = Vec3 x 0 0
-instance HasE1 Vec4 where
-  vece1 x = Vec4 x 0 0 0
-
--- =========================================================================================

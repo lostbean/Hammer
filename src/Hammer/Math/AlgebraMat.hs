@@ -10,7 +10,6 @@
 module Hammer.Math.AlgebraMat where
 
 import           Data.List                   (intercalate)
-import           Data.List                   (foldl')
 
 import           Foreign
 import           System.Random
@@ -71,14 +70,6 @@ instance RightModule Vec2 Mat2 where
 instance Diagonal Vec2 Mat2 where
   diagMtx (Vec2 x y) = Mat2 (Vec2 x 0) (Vec2 0 y)
   diagVec m = Vec2 (_1 $ _1 m) (_2 $ _2 m)
-
-instance OrthoMatrix Mat2 where
-  orthoColsHouse = transpose . getQ
-
-  orthoRowsGram (Mat2 a1 a2) = let
-    e1 = safeNormalize (Vec2 1 0) a1
-    e2 = safeNormalize (Vec2 0 1) $ foldl' schimi a2 [e1]
-    in Mat2 e1 e2
 
 instance Tensor Mat2 Vec2 where
   outer (Vec2 a b) (Vec2 x y) = Mat2
@@ -202,34 +193,6 @@ instance Diagonal Vec3 Mat3 where
   diagMtx (Vec3 x y z) = Mat3 (Vec3 x 0 0) (Vec3 0 y 0) (Vec3 0 0 z)
   diagVec m = Vec3 (_1 $ _1 m) (_2 $ _2 m) (_3 $ _3 m)
 
-instance Hessenberg Mat3 where
-  hessen m = q .*. m .*. q
-    where q = getHH3 m
-
--- | Find the Householder transformation used for tridiagonalization of symmetric
--- matrices and for transforming non-symmetric matrices to a Hessenberg form.
-getHH3 :: Mat3 -> Mat3
-getHH3 m = let
-  x = trimHead $ _1 $ transpose m
-  a = let k = norm x in if _1 x > 0 then -k else k
-  r = 0.5 * (a*a - (_1 x) * a)
-  v = Vec2 (a/(2*r)) 0
-  u = extendHeadZero $ v &- (1/(2*r)) *& x
-  in householder u
-
-instance OrthoMatrix Mat3 where
-  orthoColsHouse m = let
-    q1 = getQ m
-    m1 = (trimHead $ q1 .*. m) :: Mat2
-    q2 = extendHeadWith 1 $ getQ m1
-    in transpose q1 .*. transpose q2
-
-  orthoRowsGram (Mat3 a1 a2 a3) = let
-    e1 = safeNormalize (Vec3 1 0 0) a1
-    e2 = safeNormalize (Vec3 0 1 0) $ foldl' schimi a2 [e1]
-    e3 = safeNormalize (Vec3 0 0 1) $ foldl' schimi a3 [e1, e2]
-    in Mat3 e1 e2 e3
-
 instance Tensor Mat3 Vec3 where
   outer (Vec3 a b c) (Vec3 x y z) = Mat3
     (Vec3 (a*x) (a*y) (a*z))
@@ -342,43 +305,6 @@ instance Diagonal Vec4 Mat4 where
   diagMtx (Vec4 x y z w) = Mat4 (Vec4 x 0 0 0) (Vec4 0 y 0 0) (Vec4 0 0 z 0) (Vec4 0 0 0 w)
   diagVec m = Vec4 (_1 $ _1 m) (_2 $ _2 m) (_3 $ _3 m) (_4 $ _4 m)
 
-instance Hessenberg Mat4 where
-  hessen m = let
-    q1  = getHH4 m
-    a1  = q1 .*. m .*. q1
-    a1s = trimHead a1
-    q2  = extendHeadWith 1 $ getHH3 a1s
-    in q2 .*. a1 .*. q2
-
-getHH4 :: Mat4 -> Mat4
-getHH4 m = let
-  x = trimHead $ _1 $ transpose m
-  a = let k = norm x in if _1 x > 0 then -k else k
-  r = 0.5 * (a*a - (_1 x) * a)
-  v = Vec3 (a/(2*r)) 0 0
-  u = extendHeadZero $ v &- (1/(2*r)) *& x
-  in householder u
-
-instance OrthoMatrix Mat4 where
-  orthoColsHouse m = let
-    q1 = getQ m
-    m1 = (trimHead $ q1 .*. m)  :: Mat3
-
-    q2 = getQ m1
-    m2 = (trimHead $ q2 .*. m1) :: Mat2
-    q3 = getQ m2
-
-    q2e = extendHeadWith 1 q2
-    q3e = extendHeadWith 1 q3
-    in transpose q1 .*. transpose q2e .*. transpose q3e
-
-  orthoRowsGram (Mat4 a1 a2 a3 a4) = let
-    e1 = safeNormalize (Vec4 1 0 0 0) a1
-    e2 = safeNormalize (Vec4 0 1 0 0) $ schimi a2 e1
-    e3 = safeNormalize (Vec4 0 0 1 0) $ foldl' schimi a3 [e1, e2]
-    e4 = safeNormalize (Vec4 0 0 0 1) $ foldl' schimi a4 [e1, e2, e3]
-    in Mat4 e1 e2 e3 e4
-
 instance Tensor Mat4 Vec4 where
   outer (Vec4 a b c d) (Vec4 x y z w) = Mat4
     (Vec4 (a*x) (a*y) (a*z) (a*w))
@@ -479,34 +405,3 @@ instance NFData Mat3 where
 
 instance NFData Mat4 where
   rnf (Mat4 a b c d) = a `seq` b `seq` c `seq` d `seq` ()
-
--- ================================== Test ==================================
-
-testData1 :: Mat3 -- Source <http://en.wikipedia.org/wiki/QR_decomposition>
-testData1 = Mat3 (Vec3 12 (-51) 4) (Vec3 6 167 (-68)) (Vec3 (-4) 24 (-41))
-
-testData2 :: Mat3 -- Source <Orthogonal Bases and the QR Algorithm> <by Peter J. Olver>
-testData2 = Mat3 (Vec3 2 1 0) (Vec3 1 3 (-1)) (Vec3 0 (-1) 6)
-
-testData3 :: Mat4
-testData3 = Mat4 (Vec4 0 10 3 9) (Vec4 10 12 6 15) (Vec4 3 6 0 7) (Vec4 9 15 7 8)
-
-testData4 :: Mat4 -- Source <Orthogonal Bases and the QR Algorithm> <by Peter J. Olver>
-testData4 = Mat4 (Vec4 4 1 (-1) 2) (Vec4 1 4 1 (-1)) (Vec4 (-1) 1 4 1) (Vec4 2 (-1) 1 4)
-
-testData5 :: Mat2 -- Source <Orthogonal Bases and the QR Algorithm> <by Peter J. Olver>
-testData5 = Mat2 (Vec2 2 1) (Vec2 1 3)
-
-testQR :: (MultSemiGroup g, AbelianGroup g, OrthoMatrix g, Matrix g) => g -> g
-testQR m = m &- (q .*. r)
-  where (q, r) = qrHouse m
-
-testEigen :: ( VecFunctor t Double, OrthoMatrix a, MultiVec a, MultSemiGroup a
-             , Matrix a, MatFunctor a, LeftModule a b, HasCoordinates t Double
-             , HasCoordinates a b, DotProd b, Dimension a, Diagonal t a) =>
-             a -> [Double]
-testEigen m = map (normsqr . foo) $ take n [(_1, _1), (_2, _2), (_3, _3), (_4, _4)]
-  where
-    n = dim m
-    foo (f1, f2) = (m &- (f1 value) *& idmtx) *. (f2 $ transpose vec)
-    (vec, value) = symmEigen m

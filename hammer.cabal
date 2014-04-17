@@ -116,6 +116,7 @@ Library
                     Hammer.Math.AlgebraBase
                     Hammer.Math.AlgebraVec
                     Hammer.Math.AlgebraMat
+                    Hammer.Math.MatrixTools
                     Hammer.Math.Unboxed
 
                     Hammer.VTK.VTKXMLTemplate

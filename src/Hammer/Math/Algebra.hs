@@ -3,34 +3,36 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE TypeSynonymInstances       #-}
+{-# LANGUAGE BangPatterns               #-}
+{-# LANGUAGE FlexibleContexts           #-}
 
 module Hammer.Math.Algebra
-  ( AbelianGroup(..)
-  , MultSemiGroup(..)
+  ( AbelianGroup  (..)
+  , MultSemiGroup (..)
   , Ring
-  , LeftModule(..)
-  , RightModule(..)
-  , MultiVec (..)
-  , DotProd(..)
-  , CrossProd(..)
+  , LeftModule    (..)
+  , RightModule   (..)
+  , MultiVec      (..)
+  , DotProd       (..)
+  , CrossProd     (..)
   , normalize
   , distance
   , angle
   , angle'
   , acosSafe
-  , UnitVector (..)
-  , Pointwise (..)
-  , Extend (..)
+  , UnitVector     (..)
+  , Pointwise      (..)
+  , Extend         (..)
   , HasCoordinates (..)
-  , Dimension (..)
-  , Matrix (..)
-  , Transposable (..)
-  , Inversable (..)
-  , IdMatrix (..)
-  , Tensor (..)
-  , Diagonal (..)
-  , Determinant (..)
-  , Orthogonal (..)
+  , Dimension      (..)
+  , Matrix         (..)
+  , Transposable   (..)
+  , Inversable     (..)
+  , IdMatrix       (..)
+  , Tensor         (..)
+  , Diagonal       (..)
+  , Determinant    (..)
+  , Orthogonal     (..)
   , Vec2 (..), Vec3 (..), Vec4 (..)
   , Mat2 (..), Mat3 (..), Mat4 (..)
   , Normal2, Normal3, Normal4
@@ -53,4 +55,5 @@ module Hammer.Math.Algebra
 import Hammer.Math.AlgebraMat ()
 import Hammer.Math.AlgebraBase
 import Hammer.Math.AlgebraVec
+import Hammer.Math.MatrixTools
 import Hammer.Math.Unboxed
