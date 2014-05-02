@@ -13,12 +13,10 @@ module Hammer.MicroGraph.Graph
 
 import qualified Data.HashMap.Strict         as HM
 import qualified Data.HashSet                as HS
-import qualified Data.Vector                 as V
 import qualified Data.List                   as L
 
 import           Data.HashMap.Strict      (HashMap)
 import           Data.HashSet             (HashSet)
-import           Data.Vector              (Vector)
 import           Data.Hashable            (Hashable)
 
 
@@ -28,14 +26,15 @@ instance (Show a)=> Show (Graph a) where
   show (Graph{..}) = show graph
 
 -- | Construct a graph from edges.
-mkGraph :: (Eq a, Hashable a)=> [(a, a)] -> Graph a
-mkGraph = Graph . builder
+mkGraph :: (Eq a, Hashable a)=> [a] -> [(a, a)] -> Graph a
+mkGraph nodes = Graph . builder
   where
+    g0 = HM.fromList $ map (flip (,) HS.empty) nodes
     addE (k, !v)
       -- avoid self edge
       | k == v    = id
       | otherwise = HM.insertWith (HS.union) k (HS.singleton v)
-    builder = L.foldl' (\m (!a, !b) -> addE (a,b) $ addE (b,a) m) HM.empty
+    builder = L.foldl' (\m (!a, !b) -> addE (a,b) $ addE (b,a) m) g0
 
 -- | Search algorithm for transverse all connected nodes from a
 -- given node. No ordered sequence is defined.
@@ -85,4 +84,5 @@ hasEdge Graph{..} a b = maybe False (HS.member b) (HM.lookup a graph)
 getChilderen :: (Eq a, Hashable a)=> Graph a -> a -> HashSet a
 getChilderen Graph{..} n = maybe (HS.empty) id (HM.lookup n graph)
 
-test = mkGraph ([(1,2), (2,3), (5,2), (5,3), (60,1) , (7,4)]::[(Int,Int)])
+test :: Graph Int 
+test = mkGraph [20, 2] ([(1,2), (2,3), (5,2), (5,3), (60,1) , (7,4)]::[(Int,Int)])
