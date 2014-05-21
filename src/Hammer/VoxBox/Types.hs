@@ -129,7 +129,7 @@ instance Storable VoxelPos where
 
 newtype FacePos =
   FacePos VoxelPos
-  deriving ( Eq, Hashable, NFData, G.Vector U.Vector, M.MVector U.MVector, U.Unbox)
+  deriving ( Eq, Hashable, NFData )
 
 instance Show FacePos where
   show (FacePos (VoxelPos x y z)) = "FacePos " ++ show x ++ " " ++ show y ++ " " ++ show z
@@ -138,7 +138,7 @@ instance Show FacePos where
 
 newtype EdgePos =
   EdgePos VoxelPos
-  deriving ( Eq, Hashable, NFData, G.Vector U.Vector, M.MVector U.MVector, U.Unbox)
+  deriving ( Eq, Hashable, NFData )
 
 instance Show EdgePos where
   show (EdgePos (VoxelPos x y z)) = "EdgePos " ++ show x ++ " " ++ show y ++ " " ++ show z
@@ -396,3 +396,95 @@ unCastEdgeVoxelPos (x, p)
   | x == 0    = Ex p
   | x == 1    = Ey p
   | otherwise = Ez p
+
+-- -------------------------------------------- Unbox FacePos ----------------------------------------------------
+
+newtype instance U.MVector s FacePos = MV_FacePos (U.MVector s VoxelPos)
+newtype instance U.Vector    FacePos = V_FacePos  (U.Vector    VoxelPos)
+
+instance U.Unbox FacePos
+
+instance M.MVector U.MVector FacePos where
+  {-# INLINE basicLength #-}
+  {-# INLINE basicUnsafeSlice #-}
+  {-# INLINE basicOverlaps #-}
+  {-# INLINE basicUnsafeNew #-}
+  {-# INLINE basicUnsafeReplicate #-}
+  {-# INLINE basicUnsafeRead #-}
+  {-# INLINE basicUnsafeWrite #-}
+  {-# INLINE basicClear #-}
+  {-# INLINE basicSet #-}
+  {-# INLINE basicUnsafeCopy #-}
+  {-# INLINE basicUnsafeGrow #-}
+  basicLength (MV_FacePos v)                      = M.basicLength v
+  basicUnsafeSlice i n (MV_FacePos v)             = MV_FacePos $ M.basicUnsafeSlice i n v
+  basicOverlaps (MV_FacePos v1) (MV_FacePos v2)   = M.basicOverlaps v1 v2
+  basicUnsafeNew n                                = MV_FacePos `liftM` M.basicUnsafeNew n
+  basicUnsafeReplicate n (FacePos x)              = MV_FacePos `liftM` M.basicUnsafeReplicate n x
+  basicUnsafeRead (MV_FacePos v) i                = M.basicUnsafeRead v i >>= (return . FacePos)
+  basicUnsafeWrite (MV_FacePos v) i (FacePos x)   = M.basicUnsafeWrite v i x
+  basicClear (MV_FacePos v)                       = M.basicClear v
+  basicSet (MV_FacePos v) (FacePos x)             = M.basicSet v x
+  basicUnsafeCopy (MV_FacePos v1) (MV_FacePos v2) = M.basicUnsafeCopy v1 v2
+  basicUnsafeGrow (MV_FacePos v) n                = MV_FacePos `liftM` M.basicUnsafeGrow v n
+
+instance G.Vector U.Vector FacePos where
+  {-# INLINE basicUnsafeFreeze #-}
+  {-# INLINE basicUnsafeThaw #-}
+  {-# INLINE basicLength #-}
+  {-# INLINE basicUnsafeSlice #-}
+  {-# INLINE basicUnsafeIndexM #-}
+  {-# INLINE elemseq #-}
+  basicUnsafeFreeze (MV_FacePos v)              = V_FacePos `liftM` G.basicUnsafeFreeze v
+  basicUnsafeThaw (V_FacePos v)                 = MV_FacePos `liftM` G.basicUnsafeThaw v
+  basicLength (V_FacePos v)                     = G.basicLength v
+  basicUnsafeSlice i n (V_FacePos v)            = V_FacePos $ G.basicUnsafeSlice i n v
+  basicUnsafeIndexM (V_FacePos v) i             = G.basicUnsafeIndexM v i >>= (return . FacePos)
+  basicUnsafeCopy (MV_FacePos mv) (V_FacePos v) = G.basicUnsafeCopy mv v
+  elemseq _ (FacePos x) t                       = G.elemseq (undefined :: Vector a) x t
+
+-- -------------------------------------------- Unbox EdgePos ----------------------------------------------------
+
+newtype instance U.MVector s EdgePos = MV_EdgePos (U.MVector s VoxelPos)
+newtype instance U.Vector    EdgePos = V_EdgePos  (U.Vector    VoxelPos)
+
+instance U.Unbox EdgePos
+
+instance M.MVector U.MVector EdgePos where
+  {-# INLINE basicLength #-}
+  {-# INLINE basicUnsafeSlice #-}
+  {-# INLINE basicOverlaps #-}
+  {-# INLINE basicUnsafeNew #-}
+  {-# INLINE basicUnsafeReplicate #-}
+  {-# INLINE basicUnsafeRead #-}
+  {-# INLINE basicUnsafeWrite #-}
+  {-# INLINE basicClear #-}
+  {-# INLINE basicSet #-}
+  {-# INLINE basicUnsafeCopy #-}
+  {-# INLINE basicUnsafeGrow #-}
+  basicLength (MV_EdgePos v)                      = M.basicLength v
+  basicUnsafeSlice i n (MV_EdgePos v)             = MV_EdgePos $ M.basicUnsafeSlice i n v
+  basicOverlaps (MV_EdgePos v1) (MV_EdgePos v2)   = M.basicOverlaps v1 v2
+  basicUnsafeNew n                                = MV_EdgePos `liftM` M.basicUnsafeNew n
+  basicUnsafeReplicate n (EdgePos x)              = MV_EdgePos `liftM` M.basicUnsafeReplicate n x
+  basicUnsafeRead (MV_EdgePos v) i                = M.basicUnsafeRead v i >>= (return . EdgePos)
+  basicUnsafeWrite (MV_EdgePos v) i (EdgePos x)   = M.basicUnsafeWrite v i x
+  basicClear (MV_EdgePos v)                       = M.basicClear v
+  basicSet (MV_EdgePos v) (EdgePos x)             = M.basicSet v x
+  basicUnsafeCopy (MV_EdgePos v1) (MV_EdgePos v2) = M.basicUnsafeCopy v1 v2
+  basicUnsafeGrow (MV_EdgePos v) n                = MV_EdgePos `liftM` M.basicUnsafeGrow v n
+
+instance G.Vector U.Vector EdgePos where
+  {-# INLINE basicUnsafeFreeze #-}
+  {-# INLINE basicUnsafeThaw #-}
+  {-# INLINE basicLength #-}
+  {-# INLINE basicUnsafeSlice #-}
+  {-# INLINE basicUnsafeIndexM #-}
+  {-# INLINE elemseq #-}
+  basicUnsafeFreeze (MV_EdgePos v)              = V_EdgePos `liftM` G.basicUnsafeFreeze v
+  basicUnsafeThaw (V_EdgePos v)                 = MV_EdgePos `liftM` G.basicUnsafeThaw v
+  basicLength (V_EdgePos v)                     = G.basicLength v
+  basicUnsafeSlice i n (V_EdgePos v)            = V_EdgePos $ G.basicUnsafeSlice i n v
+  basicUnsafeIndexM (V_EdgePos v) i             = G.basicUnsafeIndexM v i >>= (return . EdgePos)
+  basicUnsafeCopy (MV_EdgePos mv) (V_EdgePos v) = G.basicUnsafeCopy mv v
+  elemseq _ (EdgePos x) t                       = G.elemseq (undefined :: Vector a) x t
