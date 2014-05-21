@@ -21,7 +21,7 @@ import           Hammer.Math.AlgebraBase
 import           Hammer.Math.AlgebraVec()
 import           Hammer.Math.AlgebraMat()
 
--- =========================================================================================
+-- =======================================================================================
 
 instance OrthoMatrix Mat2 where
   orthoColsHouse = transpose . getQ
@@ -31,7 +31,7 @@ instance OrthoMatrix Mat2 where
       e1 = safeNormalize (Vec2 1 0) a1
       e2 = safeNormalize (Vec2 0 1) $ schimi a2 e1
 
--- =========================================================================================
+-- =======================================================================================
 
 instance Hessenberg Mat3 where
   hessen m = q .*. m .*. q
@@ -61,7 +61,7 @@ instance OrthoMatrix Mat3 where
       e2 = safeNormalize (Vec3 0 1 0) $ foldl' schimi a2 [e1]
       e3 = safeNormalize (Vec3 0 0 1) $ foldl' schimi a3 [e1, e2]
 
--- =========================================================================================
+-- =======================================================================================
 
 instance Hessenberg Mat4 where
   hessen m = let
@@ -100,7 +100,7 @@ instance OrthoMatrix Mat4 where
       e3 = safeNormalize (Vec4 0 0 1 0) $ foldl' schimi a3 [e1, e2]
       e4 = safeNormalize (Vec4 0 0 0 1) $ foldl' schimi a4 [e1, e2, e3]
 
--- =========================================================================================
+-- =======================================================================================
 
 -- | Calculates the eigenpairs (eigenvalues and eigenvector) of a given
 -- *symmetric* matrix. It uses only OrthoMatrix decomposition. It can obtain correct
@@ -112,7 +112,7 @@ symmEigen :: ( OrthoMatrix m, MultSemiGroup m, MatFunctor m
              , VecFunctor v Double)=> m -> (m, v)
 symmEigen m = eigen q0 (r0 .*. q0) (10 * dim m)
   where
-    (q0, r0) = qrGram m
+    (q0, r0) = qrHouse m
     eigen !u !a !count
       | count <= 0      = (u, diagVec a)
       | offdiag < limit = (u, diagVec a)
@@ -121,9 +121,9 @@ symmEigen m = eigen q0 (r0 .*. q0) (10 * dim m)
         (diag, offdiag) = diagOffDiag a
         epsilon = 1e-10
         limit   = max (epsilon * diag) epsilon
-        (q, r)  = qrGram a
+        (q, r)  = qrHouse a
 
--- =========================================================================================
+-- =======================================================================================
 
 -- | Projects the first vector down to the hyperplane orthogonal to the second (unit) vector
 project' :: (MultiVec v, UnitVector v u, DotProd v) => v -> u -> v
@@ -136,11 +136,15 @@ projectUnsafe what dir = what &- dir &* (what &. dir)
 project :: (MultiVec v, DotProd v) => v -> v -> v
 project what dir = what &- dir &* ((what &. dir) / (dir &. dir))
 
+-- | QR decomposition using Householder method.
 qrHouse :: (OrthoMatrix m, MultSemiGroup m, Transposable m)=> m -> (m, m)
 qrHouse m = (q, r)
   where q = orthoColsHouse m
         r = transpose q .*. m
 
+-- | QR decomposition using Gram-Schmidt method. Less unstable the 'qrHouse'.
+-- It also doesn't work properly when the matrix in created by an self outer product
+-- e.g. "outer v v"
 qrGram :: (OrthoMatrix m, MultSemiGroup m, Transposable m)=> m -> (m, m)
 qrGram m = (transpose q, r)
   where q = orthoRowsGram $ transpose m
@@ -155,7 +159,7 @@ householder v
   | otherwise = idmtx
   where l = normsqr v
 
--- ============================ DO NOT EXPORT OrthoMatrix algorithms ========================
+-- ============================ DO NOT EXPORT OrthoMatrix algorithms =====================
 
 -- | Find the orthogonal component of the fisrt vector in relation to
 -- the second vector. Used by the Gram-Schimidt algorithm.
