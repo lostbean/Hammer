@@ -1,7 +1,7 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE RecordWildCards #-}
 
-module Hammer.MicroGraph.Graph
+module Hammer.Graph.Graph
        ( Graph (..)
        , mkGraph
        , dfs

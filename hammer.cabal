@@ -104,6 +104,8 @@ Library
                     Hammer.Math.SparseMatrix
                     Hammer.Math.Optimum
 
+                    Hammer.Graph
+
                     Hammer.VTK
                     Hammer.VTK.VoxBox
 
@@ -119,13 +121,14 @@ Library
                     Hammer.Math.MatrixTools
                     Hammer.Math.Unboxed
 
+                    Hammer.Graph.Graph
+
                     Hammer.VTK.VTKXMLTemplate
                     Hammer.VTK.Types
 
                     Hammer.MicroGraph.Types
                     Hammer.MicroGraph.Base
                     Hammer.MicroGraph.GraphBuilder
-                    Hammer.MicroGraph.Graph
 
                     Hammer.VoxConn.Types
                     Hammer.VoxBox.Types
