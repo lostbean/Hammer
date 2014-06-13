@@ -122,6 +122,7 @@ Library
                     Hammer.Math.Unboxed
 
                     Hammer.Graph.Graph
+                    Hammer.Graph.RandomWalk
 
                     Hammer.VTK.VTKXMLTemplate
                     Hammer.VTK.Types

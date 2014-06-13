@@ -9,6 +9,7 @@ module Hammer.VTK.Types where
 import qualified Data.ByteString.Lazy.Builder       as BB
 import qualified Data.ByteString.Lazy.Builder.ASCII as BBA
 import qualified Data.Text.Lazy.Encoding            as TE
+import qualified Data.Vector.Unboxed                as U
 import qualified Data.Vector                        as V
 
 import           Data.Monoid                        ((<>))
@@ -83,22 +84,41 @@ mkCellAttr = VTKAttrCell
 --
 -- > let attr = mkCellAttr "grainID" (\i x -> grainIDTable!i)
 --
-mkPointAttr :: (RenderElemVTK attr)=> String -> (Int -> a -> attr) -> VTKAttrPoint a
+mkPointValueAttr :: (RenderElemVTK attr)=> String -> (Int -> a -> attr) -> VTKAttrPointValue a
+mkPointValueAttr = VTKAttrPointValue
+
+-- | This function creates an attribute of type 'attr' for each point.
+-- It is itself a function that is given to render, where:
+--
+-- * Int : is the position in the point list
+--
+-- * a   : is the value of the point
+--
+-- > let attr = mkCellAttr "grainID" (\i x -> grainIDTable!i)
+--
+mkPointAttr :: (RenderElemVTK attr)=> String -> (Int -> attr) -> VTKAttrPoint a
 mkPointAttr = VTKAttrPoint
 
-data VTKAttrPoint a = forall attr. (RenderElemVTK attr)=>
-                      VTKAttrPoint String (Int -> a -> attr)
+data VTKAttrPointValue a =
+  forall attr. (RenderElemVTK attr)=>
+  VTKAttrPointValue String (Int -> a -> attr)
 
-data VTKAttrCell  a = forall attr. (RenderElemVTK attr)=>
-                      VTKAttrCell  String (Int -> Vector a -> CellType -> attr)
+data VTKAttrPoint a =
+  forall attr. (RenderElemVTK attr)=>
+  VTKAttrPoint String (Int -> attr)
+
+data VTKAttrCell  a =
+  forall attr. (RenderElemVTK attr)=>
+  VTKAttrCell  String (Int -> Vector a -> CellType -> attr)
 
 type MultiPieceVTK a = Vector (VTK a)
 
 data (RenderElemVTK a)=> VTK a = VTK
-  { name      :: Text
-  , dataSet   :: VTKDataSet a
-  , pointData :: [VTKAttrPoint a]
-  , cellData  :: [VTKAttrCell a]
+  { name           :: Text
+  , dataSet        :: VTKDataSet a
+  , pointValueData :: [VTKAttrPointValue a]
+  , pointData      :: [VTKAttrPoint a]
+  , cellData       :: [VTKAttrCell a]
   }
 
 instance (Show a, RenderElemVTK a)=> Show (VTK a) where
@@ -109,19 +129,15 @@ data VTKDataSet a =
     { dimSP    :: (Int, Int, Int)
     , originSP :: (Double, Double, Double)
     , spaceSP  :: (Double, Double, Double)
-    , setSP    :: Vector a
     }
 
   | StructGrid
-    { dimSG :: (Int, Int, Int)
-    , setSG :: Vector a
-    }
+    { dimSG :: (Int, Int, Int) }
 
   | RectLinGrid
-    { dimRG  :: (Int, Int, Int)
-    , setxRG :: Vector a
-    , setyRG :: Vector a
-    , setzRG :: Vector a
+    { setxRG :: Vector Double
+    , setyRG :: Vector Double
+    , setzRG :: Vector Double
     }
 
   | UnstructGrid
@@ -130,6 +146,25 @@ data VTKDataSet a =
     , cellOffUG  :: Vector Int
     , cellTypeUG :: V.Vector CellType
     } deriving (Show)
+
+getVTKSize :: (RenderElemVTK a)=> VTK a -> Int
+getVTKSize vtk = case dataSet vtk of
+  StructPoint (dx, dy, dz) _ _   -> dx * dy * dz
+  StructGrid  (dx, dy, dz)       -> dx * dy * dz
+  RectLinGrid sx sy sz           -> U.length sx * U.length sy * U.length sz
+  UnstructGrid{..}               -> U.length setUG
+
+getVTKIndex :: (RenderElemVTK a)=> VTK a -> Vector Int
+getVTKIndex vtk = let
+  vecSerial (dx, dy, dz) = U.fromList [ i + dx * j + dx * dy * k
+                                      | i <- [0..dx]
+                                      , j <- [0..dy]
+                                      , k <- [0..dz] ]
+  in case dataSet vtk of
+    StructPoint size _ _ -> vecSerial size
+    StructGrid  size     -> vecSerial size
+    RectLinGrid sx sy sz -> vecSerial (U.length sx, U.length sy, U.length sz)
+    UnstructGrid{..}     -> U.generate (U.length setUG) id
 
 data CellType
   = VTK_VERTEX

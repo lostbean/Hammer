@@ -5,7 +5,6 @@
 
 module Hammer.VTK.VoxBox where
 
-import qualified Data.List             as L
 import qualified Data.Vector           as V
 import qualified Data.Vector.Unboxed   as U
 import qualified Data.HashMap.Strict   as HM
@@ -18,7 +17,7 @@ import           Hammer.Math.Algebra
 import           Hammer.VoxBox
 import           Hammer.VTK
 
-import           Debug.Trace
+--import           Debug.Trace
 --dbg a = trace ("@@@@@@@>> " ++ show a) a
 
 -- =======================================================================================
@@ -27,7 +26,7 @@ newtype VoxBoxExt a = VoxBoxExt (VoxBox a)
 
 class (Unbox elem, Unbox (VTKElem elem))=> RenderVox elem where
   type VTKElem elem :: *
-  renderVox    :: VoxBoxExt a -> elem -> VTKElem elem
+  renderVox :: VoxBoxExt a -> elem -> VTKElem elem
 
 instance RenderVox FaceVoxelPos where
   type VTKElem FaceVoxelPos = (Int, Int, Int, Int)
@@ -45,7 +44,7 @@ renderFacePos :: VoxBoxExt a -> FaceVoxelPos -> (Int, Int, Int, Int)
 renderFacePos (VoxBoxExt vbox) face = let
   e p  = case getVoxelID (dimension vbox) p of
     Just x -> x
-    _      -> trace ("-----------> " ++ show face ++ show (dimension vbox)) 0
+    _      -> error ("[VTK.VoxBox] " ++ show face ++ show (dimension vbox))
   f000 = e
   f100 = e . (#+# VoxelPos 1 0 0)
   f010 = e . (#+# VoxelPos 0 1 0)
@@ -62,7 +61,7 @@ renderEdgePos :: VoxBoxExt a -> EdgeVoxelPos -> (Int, Int)
 renderEdgePos (VoxBoxExt vbox) edge = let
   e p  = case getVoxelID (dimension vbox) p of
     Just x -> x
-    _      -> trace ("-----------> " ++ show edge ++ show (dimension vbox)) 0
+    _      -> error ("[VTK.VoxBox] " ++ show edge ++ show (dimension vbox))
   f000 = e
   f100 = e . (#+# VoxelPos 1 0 0)
   f010 = e . (#+# VoxelPos 0 1 0)
@@ -75,7 +74,7 @@ renderEdgePos (VoxBoxExt vbox) edge = let
 renderVoxelPos :: VoxBoxExt a -> VoxelPos -> Int
 renderVoxelPos (VoxBoxExt vbox) p = case getVoxelID (dimension vbox) p of
   Just x -> x
-  _      -> trace ("-----------> " ++ show p ++ show (dimension vbox)) 0
+  _      -> error ("[VTK.VoxBox] " ++ show p ++ show (dimension vbox))
 
 -- | Extends the range ('VoxBoxDim') of an given 'VoxBox' in order to calculate all voxel
 -- corner points. See 'getVoxBoxCornersPoints'.
@@ -103,17 +102,15 @@ getVoxBoxCornersPoints (VoxBoxExt vbox) = let
 
 -- =======================================================================================
 
--- | Render to VTK using RectlinearGrid.
--- A @VoxBoxDim@ of x, y and z will result in x*z*y cells
--- and (x+1)*(y+1)*(z+1) points
-renderVoxBoxVTK :: VoxBox a -> [VTKAttrCell Double] -> VTK Double
+-- | Render to VTK using RectlinearGrid as points.
+-- A @VoxBoxDim@ of x, y and z will result in x*z*y points
+renderVoxBoxVTK :: VoxBox a -> [VTKAttrPoint Double] -> VTK Double
 renderVoxBoxVTK vbox attrs = let
   (dx,dy,dz) = getVoxBoxDim . vbrDim $ dimension vbox
-  vx  = U.generate (dx+1) (evalLinPos vbox XDir)
-  vy  = U.generate (dy+1) (evalLinPos vbox YDir)
-  vz  = U.generate (dz+1) (evalLinPos vbox ZDir)
-  vtk = mkRLGVTK "MicroGraph" vx vy vz
-  in L.foldl' addDataCells vtk attrs
+  vx  = U.generate dx (evalLinPos vbox XDir)
+  vy  = U.generate dy (evalLinPos vbox YDir)
+  vz  = U.generate dz (evalLinPos vbox ZDir)
+  in mkRLGVTK "VoxBoxPoints" vx vy vz attrs
 
 renderVoxElemListVTK :: (RenderCell (VTKElem elem), RenderVox elem)=>
                         VoxBox a -> [elem] -> VTK Vec3
@@ -123,8 +120,7 @@ renderVoxElemListVTK vbox v = let
   color = U.generate (length v) id
   rs    = map (renderVox vbext) v
   attr  = mkCellAttr "color" (\a _ _ -> color U.! a)
-  vtk   = mkUGVTK "MicroGraph" ps rs
-  in addDataCells vtk attr
+  in mkUGVTK "MicroGraph" ps rs [] [attr]
 
 renderVoxElemVTK :: (Unbox elem, RenderCell (VTKElem elem), RenderVox elem)=>
                     VoxBox a -> [V.Vector elem] -> VTK Vec3
@@ -134,8 +130,7 @@ renderVoxElemVTK vbox v = let
   color = U.concat $ map (\(fid, x) -> U.replicate (V.length x) fid) $ zip [(1::Int) ..] v
   rs    = V.map (renderVox vbext) $ V.concat v
   attr  = mkCellAttr "color" (\a _ _ -> color U.! a)
-  vtk   = mkUGVTK "MicroGraph" ps rs
-  in addDataCells vtk attr
+  in mkUGVTK "MicroGraph" ps rs [] [attr]
 
 renderAllElemProp :: (RenderCell (VTKElem elem), RenderVox elem, HasPropValue prop)
                   => VoxBox a -> [prop (V.Vector elem)] -> VTK Vec3

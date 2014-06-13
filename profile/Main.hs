@@ -78,13 +78,16 @@ run Tester{..} = do
     _      -> putStrLn "Skiping VTKRender profile."
 
 profile_VTKRender fout = let
-  vbox = VoxBox { dimension = mkStdVoxBoxRange (VoxBoxDim 100  100  100)
+  dx = 10
+  dy = 10
+  dz = 10
+  vbox = VoxBox { dimension = mkStdVoxBoxRange (VoxBoxDim dx dy dz)
                 , origin    = VoxBoxOrigin  0    0    0
                 , spacing   = VoxelDim      0.25 0.25 0.25
                 , grainID   = vec }
-  vec   = VU.replicate (100*100*100) (2::Int)
+  vec   = VU.generate (dx*dy*dz) id
   vtk   = renderVoxBoxVTK vbox attrs
-  attrs = [mkCellAttr "GrainID" (\a _ _ -> 1 :: Int)]
+  attrs = [mkPointAttr "GrainID" (vec VU.!)]
   in writeUniVTKfile (fout ++ ".vtr") True vtk
 
 profile_GrainFinder fout = let
@@ -101,7 +104,7 @@ profile_GrainFinder fout = let
       let
         vec   = VU.map unGrainID $ grainID vbox
         vtk   = renderVoxBoxVTK vbox attrs
-        attrs = [mkCellAttr "GrainID" (\a _ _ -> vec VU.! a)]
+        attrs = [mkPointAttr "GrainID" (\a -> vec VU.! a)]
       writeUniVTKfile (fout ++ ".vtr") True vtk
     _ -> putStrLn "Unable to find grains."
 
@@ -110,7 +113,7 @@ test_GrainFinder fout = case (getMicroVoxel . resetGrainIDs) <$> grainFinder (==
   Just (micro, vboxGID) -> let
     vec   = grainID vboxGID
     vtk   = renderVoxBoxVTK vboxTest attrs
-    attrs = [mkCellAttr "GrainID" (\a _ _ -> unGrainID $ vec VU.! a)]
+    attrs = [mkPointAttr "GrainID" (\a -> unGrainID $ vec VU.! a)]
     in do
       writeUniVTKfile (fout ++ ".vtr")        True   vtk
       writeUniVTKfile (fout ++ "_faces.vtu")  True $ renderMicroFacesVTK  vboxTest micro

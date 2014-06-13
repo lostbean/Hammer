@@ -26,13 +26,16 @@ module Hammer.VTK
     -- * Add attributes
   , mkCellAttr
   , mkPointAttr
-  , addDataPoints
-  , addDataCells
+  , mkPointValueAttr
+  , addPointAttr
+  , addPointValueAttr
+  , addCellAttr
     -- * Classes for new attributes
   , CellType    (..)
   , RenderCell  (..)
   , RenderPoint (..)
   , RenderElemVTK
+  , VTKAttrPointValue
   , VTKAttrPoint
   , VTKAttrCell
   ) where
@@ -66,66 +69,73 @@ writeMultiVTKfile name isBinary = BSL.writeFile name . X.xrender . renderVTKMult
 -- > mkUGVTK "name" (Vec.fromList [Vec3 0 0 0, Vec3 0 1 0]) [(0,1)]
 --
 mkUGVTK :: (RenderElemVTK p, RenderCell shape, Foldable cont shape)=>
-           String -> Vector p -> cont shape -> VTK p
-mkUGVTK name points cells = let
+           String -> Vector p -> cont shape ->
+           [VTKAttrPointValue p] -> [VTKAttrCell p] -> VTK p
+mkUGVTK name points cells pointData cellData = let
   nameTxt = pack name
   dataset = mkUnstructGrid points cells
-  in VTK nameTxt dataset [] []
+  in VTK nameTxt dataset pointData [] cellData
 
 -- | Creates an Rectilinear Grid dataset. Use:
 --
 -- > mkRLGVTK "name" (Vec.fromList [0,1,2]) (Vec.fromList [0,1,2]) ([(0 0 0), (0 1 0)])
 --
-mkRLGVTK :: String -> Vector Double -> Vector Double -> Vector Double -> VTK Double
-mkRLGVTK name px py pz = let
+mkRLGVTK :: (RenderElemVTK a)=> String -> Vector Double -> Vector Double -> Vector Double ->
+            [VTKAttrPoint a] -> VTK a
+mkRLGVTK name px py pz pointData = let
   nameTxt = pack name
   dataset = mkRectLinGrid px py pz
-  in VTK nameTxt dataset [] []
+  in VTK nameTxt dataset [] pointData []
 
 -- | Creates an Structured Grid dataset. Use:
 --
 -- > mkSGVTK "name" 2 1 1 ([(0 0 0), (0 1 0)])
 --
-mkSGVTK :: (RenderElemVTK a)=> String -> Int -> Int -> Int -> Vector a -> VTK a
-mkSGVTK name nx ny nz points = let
+mkSGVTK :: (RenderElemVTK a)=> String -> Int -> Int -> Int -> [VTKAttrPoint a] -> VTK a
+mkSGVTK name nx ny nz pointData = let
   nameTxt = pack name
-  dataset = StructGrid { dimSG = (nx, ny, nz), setSG = points }
-  in VTK nameTxt dataset [] []
+  dataset = StructGrid { dimSG = (nx, ny, nz) }
+  in VTK nameTxt dataset [] pointData []
 
 -- | Creates an Structured Points dataset (ImageData). Use:
 --
 -- > mkSGVTK "name" (2, 1, 1) (0.0, 0.0, 0.0) (5.0, 5.0, 5.0) ([(0 0 0), (0 1 0)])
 --
-mkSPVTK :: String -> (Int, Int, Int) -> (Double, Double, Double)
-        -> (Double, Double, Double) -> VTK Double
-mkSPVTK name (dx, dy, dz) orig spc = let
+mkSPVTK :: (RenderElemVTK a)=> String -> (Int, Int, Int) -> (Double, Double, Double)
+        -> (Double, Double, Double) -> [VTKAttrPoint a] -> VTK a
+mkSPVTK name (dx, dy, dz) orig spc pointData = let
   nameTxt = pack name
-  size    = dx * dy * dz
-  -- Fake data is needed for the func renderPointData gen. data points!!!
-  ps      = U.replicate size 0
   dataset = StructPoint { dimSP    = (dx-1, dy-1, dz-1)
                         , originSP = orig
-                        , spaceSP  = spc
-                        , setSP    = ps }
-  in VTK nameTxt dataset [] []
+                        , spaceSP  = spc }
+  in VTK nameTxt dataset [] pointData []
 
 -- | Adds data to all points in 'VTK'. Internally, it pass the data as a function
 -- 'VTKAttPoint'.
 --
--- > let attr = mkPointsAttr "grainID" (\i x -> grainIDTable!i)
--- > addDataPoints vtk
+-- > let attr = mkPointsAttr "grainID" (\i x -> x * grainIDTable!i)
+-- > addPointValueAttr vtk
 --
-addDataPoints :: (RenderElemVTK a)=> VTK a -> VTKAttrPoint a -> VTK a
-addDataPoints VTK{..} attr = VTK { pointData = attr:pointData, .. }
+addPointValueAttr :: (RenderElemVTK a)=> VTK a -> VTKAttrPointValue a -> VTK a
+addPointValueAttr VTK{..} attr = VTK { pointValueData = attr:pointValueData, .. }
+
+-- | Adds data to all points in 'VTK'. Internally, it pass the data as a function
+-- 'VTKAttPoint'.
+--
+-- > let attr = mkPointsAttr "grainID" (grainIDTable !)
+-- > addPointAttr vtk
+--
+addPointAttr :: (RenderElemVTK a)=> VTK a -> VTKAttrPoint a -> VTK a
+addPointAttr VTK{..} attr = VTK { pointData = attr:pointData, .. }
 
 -- | Adds data to all points in 'VTK'. Internally, it pass the data as a function
 -- 'VTKAttPoint'.
 --
 -- > let attr = mkCellAttr "color" (\i x cellType -> (Vec3 1 1 1) &* 1/(evalCellType cellType))
--- > addDataCells vtk attr
+-- > addCellAttr vtk attr
 --
-addDataCells :: (RenderElemVTK a)=> VTK a -> VTKAttrCell a -> VTK a
-addDataCells VTK{..} attr = VTK { cellData = attr:cellData, .. }
+addCellAttr :: (RenderElemVTK a)=> VTK a -> VTKAttrCell a -> VTK a
+addCellAttr VTK{..} attr = VTK { cellData = attr:cellData, .. }
 
 -- ================================ Internal stuffs ======================================
 
@@ -151,15 +161,9 @@ mkUnstructGrid points cells = let
                   , cellOffUG  = U.reverse $ U.fromList cell_off
                   , cellTypeUG = V.reverse $ V.fromList cell_type }
 
-mkRectLinGrid :: (RenderElemVTK a)=> Vector a ->  Vector a ->  Vector a -> VTKDataSet a
-mkRectLinGrid x y z = let
-  foo v = let
-    s = U.length v
-    in if s == 0 then s else s - 1
-  in RectLinGrid { dimRG  = (foo x, foo y, foo z)
-                 , setxRG = x
-                 , setyRG = y
-                 , setzRG = z }
+mkRectLinGrid :: (RenderElemVTK a)=> Vector Double ->
+                 Vector Double ->  Vector Double -> VTKDataSet a
+mkRectLinGrid x y z = RectLinGrid { setxRG = x, setyRG = y, setzRG = z }
 
 -- ================================ Cell containers ======================================
 
