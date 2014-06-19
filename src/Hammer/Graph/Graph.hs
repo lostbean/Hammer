@@ -10,6 +10,7 @@ module Hammer.Graph.Graph
        , getChilderen
        , hasEdge
        , graphToList
+       , getSubGraph
        ) where
 
 
@@ -26,6 +27,13 @@ newtype Graph a b = Graph { graph :: HashMap a (HashMap a b) } deriving (Eq)
 
 instance (Show a, Show b)=> Show (Graph a b) where
   show (Graph{..}) = show graph
+
+-- | Extracts a sub graph which contains a given set of nodes.
+getSubGraph ::(Eq a, Hashable a)=> Graph a b -> [a] -> Graph a b
+getSubGraph Graph{..} ns = let
+  set  = HS.fromList ns
+  func = HM.filterWithKey (\k _ -> HS.member k set)
+  in Graph $ HM.map func (func graph)
 
 -- | Construct a unidirectional graph from edges.
 mkUniGraph :: (Eq a, Eq b, Hashable a, Hashable b)=> [a] -> [((a, a), b)] -> Graph a b
