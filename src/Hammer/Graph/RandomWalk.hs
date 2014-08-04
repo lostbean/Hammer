@@ -1,58 +1,29 @@
-{-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE BangPatterns    #-}
 {-# LANGUAGE RecordWildCards #-}
 
 module Hammer.Graph.RandomWalk
-       ( applyNSOperator
-       , mkTransitionMatrix
-       , invertGraph
-       , mkNSMatrix
+       ( runMCL
        ) where
 
 import qualified Data.List           as L
 import qualified Data.HashMap.Strict as HM
+import qualified Data.Vector.Generic as G
 
-import           Data.Hashable       (Hashable)
+import           Control.DeepSeq
 
-import Hammer.Graph.Graph
+import           Hammer.Graph.Graph
+import           Hammer.Graph.Sparse
 
-addGraph :: (Num b, Eq b)=> Graph Int b -> Graph Int b -> Graph Int b
-addGraph g1 g2 = Graph gu
-  where
-    gu  = HM.unionWith foo (graph g1) (graph g2)
-    foo = HM.unionWith (+)
-
-multGraph :: (Num b, Eq b)=> Graph Int b -> Graph Int b -> Graph Int b
-multGraph g1 g2 = let
-  g2i = invertGraph g2
-  func row = let
-    foo col = mulHM row col
-    in HM.filter (/= 0) $ HM.map foo (graph g2i)
-  mulHM row col = let
-    foo acc k v = maybe acc ((acc +) . (v *)) (HM.lookup k col)
-    in HM.foldlWithKey' foo 0 row
-  in Graph $ HM.filter (not . HM.null) $ HM.map func (graph g1)
-
-invertGraph :: (Hashable a, Eq a)=> Graph a b -> Graph a b
-invertGraph Graph{..} = let
-  g = HM.foldlWithKey' func HM.empty graph
-  foo k v = HM.singleton k v
-  func acc k v = HM.unionWith (HM.union) acc (HM.map (foo k) v)
-  in Graph g
+import           Debug.Trace
 
 -- =============================== On graph clustering ===================================
-
-mkTransitionMatrix :: Graph Int Double -> Graph Int Double
-mkTransitionMatrix Graph{..} = let
-  func hm = HM.map (/s) hm
-    where s = HM.foldl' (+) 0 hm
-  in Graph $ HM.map func graph
 
 mkNSMatrix :: Int -> Graph Int Double -> Graph Int Double
 mkNSMatrix n g
   | n > 0     = L.foldl' addGraph (head sqrs) (tail sqrs)
-  | otherwise = Graph $ HM.empty
+  | otherwise = Graph HM.empty
   where
-    tm   = mkTransitionMatrix g
+    tm   = normalizeGraph g
     sqrs = L.scanl1 multGraph (replicate n tm)
 
 applyNSOperator :: Int -> Graph Int Double -> Graph Int Double
@@ -69,36 +40,106 @@ applyNSOperator n g = let
 
 -- ===================================== MCL =============================================
 
+normalizeGraph :: Graph Int Double -> Graph Int Double
+normalizeGraph Graph{..} = let
+  func hm = HM.map (/s) hm
+    where s = HM.foldl' (+) 0 hm
+  in Graph $ HM.map func graph
+
 addSelfNodes :: Graph Int Double -> Graph Int Double
 addSelfNodes Graph{..} = Graph $ HM.unionWith (HM.union) graph graph2
   where
     es = map (\x -> ((x, x), 1.0)) ns
     ns = HM.keys graph
-    Graph graph2 = mkBiGraph [] es
+    Graph graph2 = mkDiGraph [] es
 
+getMClClusters :: CRS Double -> [[Int]]
+getMClClusters = HM.elems . HM.fromListWith (++) . G.ifoldl' func [] . crs
+  where
+    func acc k x
+      | G.null v  = acc
+      | otherwise = (xmin, [k]) : acc
+      where
+        v    = vecS x
+        xmin = G.minimum (G.map fst v)
+
+runMCL :: Double -> Graph Int Double -> [[Int]]
+runMCL r = getMClClusters . run 0 . graphToCRS . normalizeGraph . addSelfNodes
+  where
+    run :: Int -> CRS Double -> CRS Double
+    run !n !x
+      | n   > 200   = m
+      | err < 0.001 = m
+      | otherwise   = trace (show (n, chaos)) $ run (n+1) m
+      where
+        m     = x `deepseq` stepMCL r x
+        err   = abs (chaos - 1)
+        chaos = getChaos m
+
+stepMCL :: Double -> CRS Double -> CRS Double
+stepMCL r = pruneMCL . inflateMCL r . expandMCL
+
+expandMCL :: CRS Double -> CRS Double
+expandMCL x = multMMsmrt x x
+
+inflateMCL :: Double -> CRS Double -> CRS Double
+inflateMCL r CRS{..} = CRS $ G.map func crs
+  where
+    func vec = let
+      col  = vecS vec
+      sumC = G.foldl' (\acc (_, x) -> acc + x**r) 0 col
+      infl = G.map    (\(j, x) -> (j, (x**r) / sumC)) col
+      in unsafeMkVecS infl
+
+pruneMCL :: CRS Double -> CRS Double
+pruneMCL = CRS . G.map func . crs
+  where func = unsafeMkVecS . G.filter ((> 0.001) . snd) . vecS
+
+getChaos :: CRS Double -> Double
+getChaos = G.foldl' func 0 . crs
+  where
+    func acc vec
+      | sumC == 0 = acc
+      | otherwise = max acc (maxC / sumC)
+      where
+        col  = vecS vec
+        maxC = G.foldl' (\acu (_,x) -> max acu x) 0 col
+        sumC = G.foldl' (\acu (_,x) -> acu + x*x) 0 col
+
+pruneFix :: Double -> VecS Double -> VecS Double
+pruneFix t = unsafeMkVecS . G.filter ((> t) . snd) . vecS
+
+-- | Use a = 0.01
+pruneDyn :: Double -> VecS Double -> VecS Double
+pruneDyn a vec = trace (show (sumx, avgx, maxx, t)) $ unsafeMkVecS $ G.filter ((> t) . snd) v
+  where
+    v = vecS vec
+    t = a * avgx * (1 - (maxx - avgx))
+    (sumx, maxx) = G.foldl' (\(!acc, !m) (_, x) -> (acc + x, max x m)) (0, 0) v
+    avgx = sumx / (fromIntegral $ G.length v)
+
+pruneDyn2 :: Double -> VecS Double -> VecS Double
+pruneDyn2 a vec = unsafeMkVecS $ G.filter ((> cf) . snd) v
+  where
+    v = vecS vec
+    (sumx, maxx) = G.foldl' (\(!acc, !m) (_, x) -> (acc + x, max x m)) (0, 0) v
+    avgx = sumx / (fromIntegral $ G.length v)
+    --c0 = a * avgx * (1 - (maxx - avgx))
+    cf = go avgx
+
+    getAvgCut c = sumcut / (fromIntegral $ ncut)
+      where
+        (sumcut, ncut) = G.foldl' func (0, 0 :: Int) v
+        func acc@(!s, !n) (_, x)
+          | x <= c    = (s+x, n+1)
+          | otherwise = acc
+
+    go !c
+      | avgcut > 0.005 = go avgcut
+      | otherwise     = c
+      where avgcut = getAvgCut c
 
 -- =================================== Testing ===========================================
-
-test :: Graph Int Double
-test = mkUniGraph [] ([((1, 2), 0.3), ((2,3), 0.8), ((3,1), 0.5)]::[((Int,Int), Double)])
-
-testB :: Graph Int Double
-testB = mkBiGraph [] ([((1, 2), 0.3), ((2,3), 0.8), ((3,1), 0.5)]::[((Int,Int), Double)])
-
-testM = let
-  a :: Graph Int Double
-  a = mkBiGraph [] [ ((1,1), 2), ((1,2), 5), ((1,3), 1)
-                   , ((2,1), 4), ((2,2), 3), ((2,3), 1)]
-
-  b = mkBiGraph [] [ ((1,1), 1)
-                   , ((2,2), 2)
-                   , ((3,1), 2), ((3,2), 3), ((3,3), 1)]
-  rm = mkBiGraph [] [ ((1,1),4.0),((1,2),13.0),((1,3),1.0)
-                    , ((2,1),6.0),((2,2),9.0), ((2,3),1.0)]
-  ra = mkBiGraph [] [ ((1,1), 3), ((1,2), 5), ((1,3), 1)
-                    , ((2,1), 4), ((2,2), 5), ((2,3), 1)
-                    , ((3,1), 2), ((3,2), 3), ((3,3), 1)]
-  in rm == (multGraph a b) && ra == (addGraph a b)
 
 testP :: Graph Int Double
 testP = mkUniGraph [] [ ((1, 2), 1), ((2,3), 1), ((3,1), 1)
