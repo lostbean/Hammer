@@ -2,10 +2,12 @@
 {-# LANGUAGE RecordWildCards #-}
 
 module Hammer.Graph.RandomWalk
-       ( runMCL
+       ( MCLCfg  (..)
+       , Pruning (..)
+       , defaultMCL
+       , runMCL
        ) where
 
-import qualified Data.List           as L
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Vector.Generic as G
 
@@ -16,40 +18,54 @@ import           Hammer.Graph.Sparse
 
 import           Debug.Trace
 
--- =============================== On graph clustering ===================================
-
-mkNSMatrix :: Int -> Graph Int Double -> Graph Int Double
-mkNSMatrix n g
-  | n > 0     = L.foldl' addGraph (head sqrs) (tail sqrs)
-  | otherwise = Graph HM.empty
-  where
-    tm   = normalizeGraph g
-    sqrs = L.scanl1 multGraph (replicate n tm)
-
-applyNSOperator :: Int -> Graph Int Double -> Graph Int Double
-applyNSOperator n g = let
-  k = fromIntegral $ 2 * n
-  Graph ns = mkNSMatrix n g
-  getL1 u v = let
-    row1 = maybe HM.empty id (HM.lookup u ns)
-    row2 = maybe HM.empty id (HM.lookup v ns)
-    ls   = HM.unionWith (-) row1 row2
-    in HM.foldl' (\acc x -> acc + abs x) 0 ls
-  func i = HM.mapWithKey (\j _ -> exp (k - getL1 i j) - 1)
-  in Graph $ HM.mapWithKey func (graph g)
-
 -- ===================================== MCL =============================================
 
-normalizeGraph :: Graph Int Double -> Graph Int Double
-normalizeGraph Graph{..} = let
-  func hm = HM.map (/s) hm
-    where s = HM.foldl' (+) 0 hm
-  in Graph $ HM.map func graph
+data Pruning
+  = FixPrune Double
+  | VarPrune Double
+  | DynPrune Double
+  | NoPrune
+  deriving (Show, Eq)
 
-addSelfNodes :: Graph Int Double -> Graph Int Double
-addSelfNodes Graph{..} = Graph $ HM.unionWith (HM.union) graph graph2
+data MCLCfg
+  = MCLCfg
+  { inflation :: Double
+  , pruneMode :: Pruning
+  , maxIter   :: Int
+  , minError  :: Double
+  , selfLoop  :: Double
+  } deriving (Show)
+
+-- | Default MCL configuration
+defaultMCL :: MCLCfg
+defaultMCL = MCLCfg
+  { inflation = 1.2
+  , pruneMode = FixPrune 0.0001
+  , maxIter   = 200
+  , minError  = 0.0001
+  , selfLoop  = 0 }
+
+-- | Graph clustering using the MCL algorithm.
+runMCL :: MCLCfg -> Graph Int Double -> [[Int]]
+runMCL c@MCLCfg{..} = getMClClusters . run maxIter .normalizeCRS .
+                      graphToCRS . addSelfNodes selfLoop
   where
-    es = map (\x -> ((x, x), 1.0)) ns
+    run :: Int -> CRS Double -> CRS Double
+    run !n !x
+      | n   < 0          = m
+      | chaos < minError = m
+      | otherwise        = trace (show (n, chaos)) $ run (n-1) m
+      where
+        m     = x `deepseq` stepMCL c x
+        chaos = getChaos m
+
+-- | Add self loop for values larger than zero.
+addSelfNodes :: Double -> Graph Int Double -> Graph Int Double
+addSelfNodes loop g@Graph{..}
+  | loop > 0  = Graph $ HM.unionWith (HM.union) graph graph2
+  | otherwise = g
+  where
+    es = map (\x -> ((x, x), loop)) ns
     ns = HM.keys graph
     Graph graph2 = mkDiGraph [] es
 
@@ -63,81 +79,108 @@ getMClClusters = HM.elems . HM.fromListWith (++) . G.ifoldl' func [] . crs
         v    = vecS x
         xmin = G.minimum (G.map fst v)
 
-runMCL :: Double -> Graph Int Double -> [[Int]]
-runMCL r = getMClClusters . run 0 . graphToCRS . normalizeGraph . addSelfNodes
+stepMCL :: MCLCfg -> CRS Double -> CRS Double
+stepMCL MCLCfg{..} = inflateCRS pruneMode inflation . expandCRS
+
+expandCRS :: CRS Double -> CRS Double
+expandCRS x = multMMsmrt x x
+
+-- | Inflate a given matrix means power its elements, prune the smaller ones using some
+-- pruning strategy and re-normalize.
+inflateCRS :: Pruning -> Double -> CRS Double -> CRS Double
+inflateCRS p r = CRS . G.map func . crs
+  where func = normalizeVecS . pruneVecS p . powerVecS r
+
+-- | Element-wise power of a 'VecS'
+powerVecS:: Double -> VecS Double -> VecS Double
+powerVecS r = unsafeMkVecS . G.map (\(j, x) -> (j, x ** r)) . vecS
+
+normalizeCRS :: CRS Double -> CRS Double
+normalizeCRS = CRS . G.map normalizeVecS . crs
+
+-- | Normalize the vector where the sum of all its elements is 1.
+normalizeVecS :: VecS Double -> VecS Double
+normalizeVecS vec
+  | sumC == 0 = vec
+  | otherwise = unsafeMkVecS norm
   where
-    run :: Int -> CRS Double -> CRS Double
-    run !n !x
-      | n   > 200   = m
-      | err < 0.001 = m
-      | otherwise   = trace (show (n, chaos)) $ run (n+1) m
-      where
-        m     = x `deepseq` stepMCL r x
-        err   = abs (chaos - 1)
-        chaos = getChaos m
+    col  = vecS vec
+    sumC = G.foldl' (\acc (_, x) -> acc + x) 0 col
+    norm = G.map    (\(j, x) -> (j, x / sumC)) col
 
-stepMCL :: Double -> CRS Double -> CRS Double
-stepMCL r = pruneMCL . inflateMCL r . expandMCL
-
-expandMCL :: CRS Double -> CRS Double
-expandMCL x = multMMsmrt x x
-
-inflateMCL :: Double -> CRS Double -> CRS Double
-inflateMCL r CRS{..} = CRS $ G.map func crs
-  where
-    func vec = let
-      col  = vecS vec
-      sumC = G.foldl' (\acc (_, x) -> acc + x**r) 0 col
-      infl = G.map    (\(j, x) -> (j, (x**r) / sumC)) col
-      in unsafeMkVecS infl
-
-pruneMCL :: CRS Double -> CRS Double
-pruneMCL = CRS . G.map func . crs
-  where func = unsafeMkVecS . G.filter ((> 0.001) . snd) . vecS
-
+-- | Calculate how far a given matrix is from "doubly idempotent"
 getChaos :: CRS Double -> Double
 getChaos = G.foldl' func 0 . crs
   where
     func acc vec
       | sumC == 0 = acc
-      | otherwise = max acc (maxC / sumC)
+      | otherwise = max acc (abs $ maxC - sumC)
       where
         col  = vecS vec
         maxC = G.foldl' (\acu (_,x) -> max acu x) 0 col
         sumC = G.foldl' (\acu (_,x) -> acu + x*x) 0 col
 
-pruneFix :: Double -> VecS Double -> VecS Double
-pruneFix t = unsafeMkVecS . G.filter ((> t) . snd) . vecS
+-- ==================================== Pruning ==========================================
 
--- | Use a = 0.01
-pruneDyn :: Double -> VecS Double -> VecS Double
-pruneDyn a vec = trace (show (sumx, avgx, maxx, t)) $ unsafeMkVecS $ G.filter ((> t) . snd) v
+-- | Prunes an vector using a given strategy.
+pruneVecS :: Pruning -> (VecS Double -> VecS Double)
+pruneVecS p = case p of
+  FixPrune t -> fixPrune t
+  VarPrune t -> varPrune t
+  DynPrune t -> dynPrune t
+  _          -> id
+
+-- | Prunes all elements smaller that a fix values
+fixPrune :: Double -> VecS Double -> VecS Double
+fixPrune t = unsafeMkVecS . G.filter ((> t) . snd) . vecS
+
+-- | Prunes all elements smaller that a threshold calculated based on statistical
+-- distribution of the input vector.
+varPrune :: Double -> VecS Double -> VecS Double
+varPrune a vec = unsafeMkVecS $ G.filter ((> t) . snd) (vecS vec)
   where
-    v = vecS vec
+    (_, avgx, maxx) = getPruningStat vec
     t = a * avgx * (1 - (maxx - avgx))
-    (sumx, maxx) = G.foldl' (\(!acc, !m) (_, x) -> (acc + x, max x m)) (0, 0) v
-    avgx = sumx / (fromIntegral $ G.length v)
 
-pruneDyn2 :: Double -> VecS Double -> VecS Double
-pruneDyn2 a vec = unsafeMkVecS $ G.filter ((> cf) . snd) v
+-- | Prunes all small elements with fixed total amount of pruning (e.g. 0.05 means pruning
+-- small elements with maximum total pruning of 5%)
+dynPrune :: Double -> VecS Double -> VecS Double
+dynPrune k vec
+  | minx > k = vec
+  | otherwise   = unsafeMkVecS $ G.filter ((> cf) . snd) v
   where
     v = vecS vec
-    (sumx, maxx) = G.foldl' (\(!acc, !m) (_, x) -> (acc + x, max x m)) (0, 0) v
-    avgx = sumx / (fromIntegral $ G.length v)
-    --c0 = a * avgx * (1 - (maxx - avgx))
-    cf = go avgx
-
-    getAvgCut c = sumcut / (fromIntegral $ ncut)
-      where
-        (sumcut, ncut) = G.foldl' func (0, 0 :: Int) v
-        func acc@(!s, !n) (_, x)
-          | x <= c    = (s+x, n+1)
-          | otherwise = acc
-
+    (minx, avgx, maxx) = getPruningStat vec
+    c0 = (maxx + avgx) / 2
+    cf = go c0
     go !c
-      | avgcut > 0.005 = go avgcut
-      | otherwise     = c
-      where avgcut = getAvgCut c
+      | total < k = c
+      | n <= 1    = c
+      | otherwise = go avg
+      where
+        -- cut under the average to avoid infinite loop
+        (avg, total, n) = getAvgCut vec (c * 0.98)
+
+-- | Get some statistics parameters (minimum value, average, maximum value)
+getPruningStat :: VecS Double -> (Double, Double, Double)
+getPruningStat vec = (mi, avg, ma)
+  where
+    v      = vecS vec
+    avg    = s / (fromIntegral $ G.length v)
+    (s, mi, ma) = G.foldl' func (0, 1, 0) v
+    func (!acc, !k, !t) (_, x) = (acc + x, min x k, max x t)
+
+-- | Calculate the number of elements above a given threshold and their average value.
+getAvgCut :: VecS Double -> Double -> (Double, Double, Int)
+getAvgCut vec c
+  | ncut > 0  = (avg, sumcut, ncut)
+  | otherwise = (0, 0, 0)
+  where
+    avg = sumcut / (fromIntegral $ ncut)
+    (sumcut, ncut) = G.foldl' func (0, 0 :: Int) (vecS vec)
+    func acc@(!s, !n) (_, x)
+      | x <= c    = (s+x, n+1)
+      | otherwise = acc
 
 -- =================================== Testing ===========================================
 
