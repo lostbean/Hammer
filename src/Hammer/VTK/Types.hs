@@ -253,10 +253,16 @@ instance RenderPoint Vec3 where
   pointNumberComp = const 3
 
 instance RenderPoint Vec2 where
-  renderPoint (Vec2 x y)       = renderPoint x <> renderPoint y
-  renderBinaryPoint (Vec2 x y) = renderBinaryPoint x <> renderBinaryPoint y
-  pointNumberType              = const VTK_Float
-  pointNumberComp              = const 2
+  renderPoint (Vec2 x y) =
+    renderPoint x <>
+    renderPoint y <>
+    renderPoint (0 :: Double)
+  renderBinaryPoint (Vec2 x y) =
+    renderBinaryPoint x <>
+    renderBinaryPoint y <>
+    renderBinaryPoint (0 :: Double)
+  pointNumberType = const VTK_Float
+  pointNumberComp = const 3
 
 instance RenderPoint Double where
   renderPoint       = (<> BB.char8 ' ') . renderDouble
