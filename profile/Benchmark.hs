@@ -72,7 +72,7 @@ main = do
       [ bench "expGraph"     $ nf f1 gg
       , bench "expMM"        $ nf f2 mm
       , bench "expMM-smrt"   $ nf f3 mm
-      , bench "mclSparse"    $ nf (\x -> runMCL 1.2 x) gg
+      , bench "mclSparse"    $ nf (\x -> runMCL defaultMCL x) gg
       ]
       -- ++ benchmarkMicroVoxel vboxTest
 

@@ -1,18 +1,11 @@
 {-# LANGUAGE RecordWildCards #-}
 module Main where
 
-import qualified Data.Vector         as V
 import qualified Data.Vector.Unboxed as VU
-import qualified Data.HashMap.Strict as HM
-
-import           Data.Maybe          (mapMaybe)
-import           Data.HashMap.Strict (HashMap)
-import           Numeric.Container   (add, scale, buildMatrix)
 
 import           Data.List
 import           Options.Applicative
 import           Prelude
-import           System.Random
 
 import           Hammer.MicroGraph
 import           Hammer.VTK
