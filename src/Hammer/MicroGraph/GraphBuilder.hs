@@ -7,7 +7,6 @@
 module Hammer.MicroGraph.GraphBuilder
        ( MicroVoxel
        , getMicroVoxel
-       , benchmarkMicroVoxel
        ) where
 
 import qualified Data.HashMap.Strict         as HM
@@ -21,7 +20,6 @@ import           Data.Vector              (Vector)
 import           Hammer.Math.SparseMatrix (Sparse3)
 
 import           Data.List
-import           Criterion
 
 import           Hammer.MicroGraph.Base
 import           Hammer.MicroGraph.Types
@@ -289,7 +287,6 @@ groupFacesSP vbr fs = let
     Just x -> HM.foldlWithKey' foo zeroSet  x
     _      -> zeroSet
 
-
 groupFaces :: VoxBoxRange -> [(FaceVoxelPos, FaceID)] -> FaceSet
 groupFaces vbr fs = let
   hmf :: HashMap VoxelPos FaceID
@@ -438,27 +435,3 @@ getCrossConnEdgePos dir p@(EdgePos vp) = V.map (\(a, b) -> (EdgePos a, b)) $ cas
     | isEdgeY p -> V.fromList [getZYminus vp, getZYplus vp]
     | isEdgeZ p -> V.fromList [getZYminus vp, getZYplus vp, getZXminus vp, getZXplus vp]
     | otherwise -> V.empty
-
--- ================================ Benchmark functions ================================
-
-benchmarkMicroVoxel :: VoxBox Int -> [Benchmark]
-benchmarkMicroVoxel vboxdata = case grainFinder (==) vboxdata of
-  Just (vboxGID, _) -> let
-    vbr     = dimension vboxdata
-    allPosV = V.fromList $ getRangePos vbr
-    o1 = snd $ groupFaces   vbr felems
-    o2 = snd $ groupFacesSP vbr felems
-    felems  = getFaces vboxGID allPosV
-    --faceSet = groupFaces vbr felems
-
-    --eelems  = getEdges faceSet allPosV
-    --edgeSet = groupEdges vbr eelems
-
-    --velems  = getVertex vboxGID edgeSet allPosV
-
-    in traceShow (o1,o2) $ [ bench "grainFinder"  $ nf (grainFinder (==)) vboxdata
-       , bench "groupFaces"   $ nf (groupFaces vbr) felems
-       , bench "groupFacesSP" $ nf (groupFacesSP vbr) felems
-       --, bench "groupEdges"  $ nf (groupEdges vbr) eelems
-       ]
-  _ -> []

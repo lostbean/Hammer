@@ -100,7 +100,6 @@ Library
                 , xmlgen                  >= 0.6
                 , blaze-builder           >= 0.3
                 , base64-bytestring       >= 1.0
-                , criterion               >= 0.6
 
   exposed-modules:  Hammer.Math.Algebra
                     Hammer.Math.Array
