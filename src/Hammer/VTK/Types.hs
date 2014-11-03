@@ -51,6 +51,7 @@ instance RenderElemVTK Word8
 instance RenderElemVTK Word32
 instance RenderElemVTK Int
 instance RenderElemVTK Double
+instance RenderElemVTK Normal3
 instance RenderElemVTK Vec3
 instance RenderElemVTK Vec2
 instance RenderElemVTK Mat3
@@ -261,6 +262,12 @@ instance RenderPoint Vec2 where
     renderBinaryPoint x <>
     renderBinaryPoint y <>
     renderBinaryPoint (0 :: Double)
+  pointNumberType = const VTK_Float
+  pointNumberComp = const 3
+
+instance RenderPoint Normal3 where
+  renderPoint = renderPoint . fromNormal
+  renderBinaryPoint = renderBinaryPoint . fromNormal
   pointNumberType = const VTK_Float
   pointNumberComp = const 3
 
