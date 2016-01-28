@@ -1,8 +1,6 @@
 module Hammer.Graph
-       ( module Hammer.Graph.Graph
-       -- * Random Walking Clustering
-       , module Hammer.Graph.RandomWalk
+       ( -- * Random Walking Clustering
+         module Data.Graph.Markov
        ) where
 
-import Hammer.Graph.Graph
-import Hammer.Graph.RandomWalk
+import Data.Graph.Markov

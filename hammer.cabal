@@ -93,6 +93,7 @@ Library
                 , xmlgen                  >= 0.6
                 , blaze-builder           >= 0.3
                 , base64-bytestring       >= 1.0
+                , mcl                     == 0.1
 
   exposed-modules:  Hammer.Math.Algebra
                     Hammer.Math.Array
@@ -101,7 +102,6 @@ Library
                     Hammer.Math.Optimum
 
                     Hammer.Graph
-                    Hammer.Graph.Sparse
 
                     Hammer.VTK
                     Hammer.VTK.VoxBox
@@ -117,9 +117,6 @@ Library
                     Hammer.Math.AlgebraMat
                     Hammer.Math.MatrixTools
                     Hammer.Math.Unboxed
-
-                    Hammer.Graph.Graph
-                    Hammer.Graph.RandomWalk
 
                     Hammer.VTK.VTKXMLTemplate
                     Hammer.VTK.Types
