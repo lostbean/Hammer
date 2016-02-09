@@ -36,6 +36,7 @@ instance M.MVector U.MVector Vec2 where
   basicLength (MV_Vec2 v)                     = M.basicLength v
   basicUnsafeSlice i n (MV_Vec2 v)            = MV_Vec2 $ M.basicUnsafeSlice i n v
   basicOverlaps (MV_Vec2 v1) (MV_Vec2 v2)     = M.basicOverlaps v1 v2
+  basicInitialize (MV_Vec2 v)                 = M.basicInitialize v
   basicUnsafeNew n                            = MV_Vec2 `liftM` M.basicUnsafeNew n
   basicUnsafeReplicate n (Vec2 x y)           = MV_Vec2 `liftM` M.basicUnsafeReplicate n (x, y)
   basicUnsafeRead (MV_Vec2 v) i               = M.basicUnsafeRead v i >>= (\(x, y) -> return $ Vec2 x y)
@@ -84,6 +85,7 @@ instance M.MVector U.MVector Vec3 where
   basicLength (MV_Vec3 v)                     = M.basicLength v
   basicUnsafeSlice i n (MV_Vec3 v)            = MV_Vec3 $ M.basicUnsafeSlice i n v
   basicOverlaps (MV_Vec3 v1) (MV_Vec3 v2)     = M.basicOverlaps v1 v2
+  basicInitialize (MV_Vec3 v)                 = M.basicInitialize v
   basicUnsafeNew n                            = MV_Vec3 `liftM` M.basicUnsafeNew n
   basicUnsafeReplicate n (Vec3 x y z)         = MV_Vec3 `liftM` M.basicUnsafeReplicate n (x, y, z)
   basicUnsafeRead (MV_Vec3 v) i               = M.basicUnsafeRead v i >>= (\(x,y,z) -> return $ Vec3 x y z)
@@ -183,6 +185,7 @@ instance M.MVector U.MVector Mat2 where
   basicLength (MV_Mat2 v)                     = M.basicLength v
   basicUnsafeSlice i n (MV_Mat2 v)            = MV_Mat2 $ M.basicUnsafeSlice i n v
   basicOverlaps (MV_Mat2 v1) (MV_Mat2 v2)     = M.basicOverlaps v1 v2
+  basicInitialize (MV_Mat2 v)                 = M.basicInitialize v
   basicUnsafeNew n                            = MV_Mat2 `liftM` M.basicUnsafeNew n
   basicUnsafeReplicate n (Mat2 x y)           = MV_Mat2 `liftM` M.basicUnsafeReplicate n (x, y)
   basicUnsafeRead (MV_Mat2 v) i               = M.basicUnsafeRead v i >>= (\(x, y) -> return $ Mat2 x y)
@@ -231,6 +234,7 @@ instance M.MVector U.MVector Mat3 where
   basicLength (MV_Mat3 v)                     = M.basicLength v
   basicUnsafeSlice i n (MV_Mat3 v)            = MV_Mat3 $ M.basicUnsafeSlice i n v
   basicOverlaps (MV_Mat3 v1) (MV_Mat3 v2)     = M.basicOverlaps v1 v2
+  basicInitialize (MV_Mat3 v)                 = M.basicInitialize v
   basicUnsafeNew n                            = MV_Mat3 `liftM` M.basicUnsafeNew n
   basicUnsafeReplicate n (Mat3 x y z)         = MV_Mat3 `liftM` M.basicUnsafeReplicate n (x, y, z)
   basicUnsafeRead (MV_Mat3 v) i               = M.basicUnsafeRead v i >>= (\(x,y,z) -> return $ Mat3 x y z)
@@ -280,6 +284,7 @@ instance M.MVector U.MVector Mat4 where
   basicLength (MV_Mat4 v)                       = M.basicLength v
   basicUnsafeSlice i n (MV_Mat4 v)              = MV_Mat4 $ M.basicUnsafeSlice i n v
   basicOverlaps (MV_Mat4 v1) (MV_Mat4 v2)       = M.basicOverlaps v1 v2
+  basicInitialize (MV_Mat4 v)                 = M.basicInitialize v
   basicUnsafeNew n                              = MV_Mat4 `liftM` M.basicUnsafeNew n
   basicUnsafeReplicate n (Mat4 x y z w)         = MV_Mat4 `liftM` M.basicUnsafeReplicate n (x, y, z, w)
   basicUnsafeRead (MV_Mat4 v) i                 = M.basicUnsafeRead v i >>= (\(x, y, z, w) -> return $ Mat4 x y z w)

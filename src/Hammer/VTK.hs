@@ -68,9 +68,8 @@ writeMultiVTKfile name isBinary = BSL.writeFile name . X.xrender . renderVTKMult
 --
 -- > mkUGVTK "name" (Vec.fromList [Vec3 0 0 0, Vec3 0 1 0]) [(0,1)]
 --
-mkUGVTK :: (RenderElemVTK p, RenderCell shape, Foldable cont shape)=>
-           String -> Vector p -> cont shape ->
-           [VTKAttrPointValue p] -> [VTKAttrCell p] -> VTK p
+mkUGVTK :: (RenderElemVTK p, RenderCell shape, FastFoldable cont shape)
+        => String -> Vector p -> cont shape -> [VTKAttrPointValue p] -> [VTKAttrCell p] -> VTK p
 mkUGVTK name points cells pointData cellData = let
   nameTxt = pack name
   dataset = mkUnstructGrid points cells
@@ -151,7 +150,7 @@ addCell set@(cellUG, cellOffUG, cellTypeUG, offCount) obj
     cell_size  = U.length cell
     cell_type  = getType obj
 
-mkUnstructGrid :: (RenderElemVTK p, RenderCell shape, Foldable cont shape)=>
+mkUnstructGrid :: (RenderElemVTK p, RenderCell shape, FastFoldable cont shape)=>
                   Vector p -> cont shape -> VTKDataSet p
 mkUnstructGrid points cells = let
   i = ([], [], [], 0)
@@ -167,19 +166,20 @@ mkRectLinGrid x y z = RectLinGrid { setxRG = x, setyRG = y, setzRG = z }
 
 -- ================================ Cell containers ======================================
 
-class Foldable cont b where
+-- | Special foldable class since `Foldable` doesn't support unboxed vectors
+class FastFoldable cont b where
   folder :: (a -> b -> a) -> a -> cont b -> a
 
-instance Foldable [] a where
+instance FastFoldable [] a where
   folder func = L.foldr (flip func)
 
-instance (U.Unbox a)=> Foldable Vector a where
+instance (U.Unbox a)=> FastFoldable Vector a where
   folder func = U.foldr' (flip func)
 
-instance Foldable V.Vector a where
+instance FastFoldable V.Vector a where
   folder func = V.foldr' (flip func)
 
-instance Foldable IntMap a where
+instance FastFoldable IntMap a where
   folder func = IM.fold (flip func)
 
 -- ================================ Basic instances ======================================
