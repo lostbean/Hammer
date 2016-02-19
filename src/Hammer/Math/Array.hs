@@ -1,8 +1,10 @@
-{-# LANGUAGE BangPatterns          #-}
-{-# LANGUAGE FlexibleContexts      #-}
-{-# LANGUAGE FlexibleInstances     #-}
-{-# LANGUAGE RecordWildCards       #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE
+    BangPatterns
+  , FlexibleContexts
+  , FlexibleInstances
+  , RecordWildCards
+  , MultiParamTypeClasses
+  #-}
 {-# OPTIONS_GHC -fno-warn-orphans  #-}
 
 module Hammer.Math.Array
@@ -41,12 +43,13 @@ import           Hammer.Math.AlgebraBase
 
 -- ====================================== Array ====================================
 
-data (IxArray i)=> Array i e = Array
-                   { shape :: (Shape i)
-                   , array :: VU.Vector e
-                   } deriving (Show, Eq)
+data Array i e
+  = Array
+  { shape :: (Shape i)
+  , array :: VU.Vector e
+  } deriving (Show, Eq)
 
-data (IxArray i)=> Shape i = Shape i deriving (Show, Eq)
+data Shape i = Shape i deriving (Show, Eq)
 
 class (Ord a)=> IxArray a where
   ix       :: Shape a -> Int -> a

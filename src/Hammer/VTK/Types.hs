@@ -114,7 +114,7 @@ data VTKAttrCell  a =
 
 type MultiPieceVTK a = Vector (VTK a)
 
-data (RenderElemVTK a)=> VTK a = VTK
+data VTK a = VTK
   { name           :: Text
   , dataSet        :: VTKDataSet a
   , pointValueData :: [VTKAttrPointValue a]
