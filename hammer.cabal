@@ -94,6 +94,7 @@ Library
                 , blaze-builder           >= 0.3
                 , base64-bytestring       >= 1.0
                 , mcl                     == 0.1
+                , vtk                     == 0.1.0
 
   exposed-modules:  Hammer.Math.Algebra
                     Hammer.Math.Array
@@ -103,13 +104,12 @@ Library
 
                     Hammer.Graph
 
-                    Hammer.VTK
-                    Hammer.VTK.VoxBox
-
                     Hammer.MicroGraph
 
                     Hammer.VoxBox
                     Hammer.VoxConn
+
+                    Hammer.VTK
 
   other-modules:
                     Hammer.Math.AlgebraBase
@@ -117,9 +117,6 @@ Library
                     Hammer.Math.AlgebraMat
                     Hammer.Math.MatrixTools
                     Hammer.Math.Unboxed
-
-                    Hammer.VTK.VTKXMLTemplate
-                    Hammer.VTK.Types
 
                     Hammer.MicroGraph.Types
                     Hammer.MicroGraph.Base
