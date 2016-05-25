@@ -2,20 +2,17 @@ name:           hammer
 version:        0.4.0
 cabal-version:  >= 1.8
 build-type:     Simple
-license:        GPL-3
+license:        BSD3
 license-file:   LICENSE
-maintainer:     Edgar Gomes de Araujo
+copyright:      (c) 2008-2011 Balazs Komuves (c) 2011 Edgar Gomes
+author:         Edgar Gomes de Araujo <talktoedgar at gmail dot com>
+maintainer:     Edgar Gomes de Araujo <talktoedgar at gmail dot com>
 stability:      experimental
-homepage:
-package-url:
-bug-reports:    talktoedgar@gmail.com
 synopsis:       Basic tools for microstructure in polycrystal materials
 description: Library with tools for metalurgical research. Includes:
  - Vector and matrix operations
  - Group conected components using graphs
- Aim of this library is also performance and multi-core ready.
 category:       Math
-author:         Edgar Gomes de Araujo
 
 Flag test
     Description:        Build the exectable using command line.
@@ -85,6 +82,7 @@ Library
                 , bytestring              >= 0.10
                 , vector                  >= 0.10
                 , vector-algorithms       >= 0.5
+                , vector-th-unbox         >= 0.2.1
                 , binary                  >= 0.7
                 , primitive               >= 0.5
                 , random                  >= 1.0
@@ -116,7 +114,6 @@ Library
                     Hammer.Math.AlgebraVec
                     Hammer.Math.AlgebraMat
                     Hammer.Math.MatrixTools
-                    Hammer.Math.Unboxed
 
                     Hammer.MicroGraph.Types
                     Hammer.MicroGraph.Base

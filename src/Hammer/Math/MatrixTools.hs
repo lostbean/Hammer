@@ -1,25 +1,26 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE FlexibleContexts           #-}
-{-# LANGUAGE FlexibleInstances          #-}
-{-# LANGUAGE TypeSynonymInstances       #-}
-{-# LANGUAGE BangPatterns               #-}
+{-# LANGUAGE
+    GeneralizedNewtypeDeriving
+  , FlexibleContexts
+  , FlexibleInstances
+  , TypeSynonymInstances
+  , BangPatterns
+  #-}
 {-# OPTIONS_GHC -fno-warn-orphans       #-}
-
 module Hammer.Math.MatrixTools
-       ( symmEigen
-       , qrGram
-       , qrHouse
-       , project
-       , project'
-       , projectUnsafe
-       , householder
-       ) where
+  ( symmEigen
+  , qrGram
+  , qrHouse
+  , project
+  , project'
+  , projectUnsafe
+  , householder
+  ) where
 
-import           Data.List (foldl')
+import Data.List (foldl')
 
-import           Hammer.Math.AlgebraBase
-import           Hammer.Math.AlgebraVec()
-import           Hammer.Math.AlgebraMat()
+import Hammer.Math.AlgebraBase
+import Hammer.Math.AlgebraVec ()
+import Hammer.Math.AlgebraMat ()
 
 -- =======================================================================================
 
@@ -43,9 +44,9 @@ getHH3 :: Mat3 -> Mat3
 getHH3 m = let
   x = trimHead $ _1 $ transpose m
   a = let k = norm x in if _1 x > 0 then -k else k
-  r = 0.5 * (a*a - (_1 x) * a)
-  v = Vec2 (a/(2*r)) 0
-  u = extendHeadZero $ v &- (1/(2*r)) *& x
+  r = 0.5 * (a * a - (_1 x) * a)
+  v = Vec2 (a / (2 * r)) 0
+  u = extendHeadZero $ v &- (1 / (2 * r)) *& x
   in householder u
 
 instance OrthoMatrix Mat3 where
@@ -75,9 +76,9 @@ getHH4 :: Mat4 -> Mat4
 getHH4 m = let
   x = trimHead $ _1 $ transpose m
   a = let k = norm x in if _1 x > 0 then -k else k
-  r = 0.5 * (a*a - (_1 x) * a)
-  v = Vec3 (a/(2*r)) 0 0
-  u = extendHeadZero $ v &- (1/(2*r)) *& x
+  r = 0.5 * (a * a - (_1 x) * a)
+  v = Vec3 (a / (2 * r)) 0 0
+  u = extendHeadZero $ v &- (1 / ( 2 * r)) *& x
   in householder u
 
 instance OrthoMatrix Mat4 where

@@ -1,22 +1,24 @@
-{-# LANGUAGE MultiParamTypeClasses      #-}
-{-# LANGUAGE FunctionalDependencies     #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE FlexibleContexts           #-}
-{-# LANGUAGE FlexibleInstances          #-}
-{-# LANGUAGE TypeSynonymInstances       #-}
-{-# LANGUAGE TypeFamilies               #-}
-{-# OPTIONS_GHC -fno-warn-orphans       #-}
-
+{-# LANGUAGE
+    FlexibleInstances
+  , GeneralizedNewtypeDeriving
+  , MultiParamTypeClasses
+  , TypeSynonymInstances
+  , TypeFamilies
+  , UndecidableInstances
+  , RankNTypes
+  , TemplateHaskell
+  #-}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 module Hammer.Math.AlgebraMat where
 
-import           Data.List                   (intercalate)
+import Control.DeepSeq
+import Data.List (intercalate)
+import Data.Vector.Unboxed.Deriving
+import Foreign
+import System.Random
 
-import           Foreign
-import           System.Random
-import           Control.DeepSeq
-
-import           Hammer.Math.AlgebraBase
-import           Hammer.Math.AlgebraVec()
+import Hammer.Math.AlgebraBase
+import Hammer.Math.AlgebraVec ()
 
 --------------------------------------------------------------------------------
 -- Mat2 instances
@@ -210,7 +212,7 @@ instance Storable Mat3 where
     let p = castPtr q :: Ptr Vec3
         k = sizeOf (undefined::Vec3)
     r1 <- peek        p
-    r2 <- peekByteOff p (k  )
+    r2 <- peekByteOff p k
     r3 <- peekByteOff p (k+k)
     return (Mat3 r1 r2 r3)
 
@@ -218,7 +220,7 @@ instance Storable Mat3 where
     let p = castPtr q :: Ptr Vec3
         k = sizeOf (undefined::Vec3)
     poke        p       r1
-    pokeByteOff p (k  ) r2
+    pokeByteOff p k     r2
     pokeByteOff p (k+k) r3
 
 instance Random Mat3 where
@@ -312,10 +314,6 @@ instance Tensor Mat4 Vec4 where
     (Vec4 (c*x) (c*y) (c*z) (c*w))
     (Vec4 (d*x) (d*y) (d*z) (d*w))
 
-instance Determinant Mat4 where
-  det = error "det/Mat4: not implemented yet"
-  -- det (Mat4 r1 r2 r3 r4) =
-
 instance Storable Mat4 where
   sizeOf    _ = 4 * sizeOf (undefined::Vec4)
   alignment _ = alignment  (undefined::Vec4)
@@ -324,7 +322,7 @@ instance Storable Mat4 where
     let p = castPtr q :: Ptr Vec4
         k = sizeOf (undefined::Vec4)
     r1 <- peek        p
-    r2 <- peekByteOff p (k  )
+    r2 <- peekByteOff p k
     r3 <- peekByteOff p (k+k)
     r4 <- peekByteOff p (3*k)
     return (Mat4 r1 r2 r3 r4)
@@ -333,7 +331,7 @@ instance Storable Mat4 where
     let p = castPtr q :: Ptr Vec4
         k = sizeOf (undefined::Vec4)
     poke        p       r1
-    pokeByteOff p (k  ) r2
+    pokeByteOff p k     r2
     pokeByteOff p (k+k) r3
     pokeByteOff p (3*k) r4
 
@@ -405,3 +403,20 @@ instance NFData Mat3 where
 
 instance NFData Mat4 where
   rnf (Mat4 a b c d) = a `seq` b `seq` c `seq` d `seq` ()
+
+-- -------------------------------------------- Unbox ----------------------------------------------------
+
+derivingUnbox "Mat2"
+    [t| Mat2 -> (Vec2, Vec2) |]
+    [| \ (Mat2 x y) -> (x, y) |]
+    [| \ (x, y) -> (Mat2 x y) |]
+
+derivingUnbox "Mat3"
+    [t| Mat3 -> (Vec3, Vec3, Vec3) |]
+    [| \ (Mat3 x y z) -> (x, y, z) |]
+    [| \ (x, y, z) -> (Mat3 x y z) |]
+
+derivingUnbox "Mat4"
+    [t| Mat4 -> (Vec4, Vec4, Vec4, Vec4) |]
+    [| \ (Mat4 x y z t) -> (x, y, z, t) |]
+    [| \ (x, y, z, t) -> (Mat4 x y z t) |]

@@ -56,4 +56,3 @@ import Hammer.Math.AlgebraMat ()
 import Hammer.Math.AlgebraBase
 import Hammer.Math.AlgebraVec
 import Hammer.Math.MatrixTools
-import Hammer.Math.Unboxed

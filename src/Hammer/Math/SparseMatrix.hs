@@ -27,8 +27,7 @@ module Hammer.Math.SparseMatrix
   , Sparse3Dim (..)
   ) where
 
---import Prelude hiding (lookup)                     
-import qualified Data.List                    as L
+--import Prelude hiding (lookup)
 import qualified Data.Vector                  as V
 import qualified Data.Vector.Unboxed          as VU
 import qualified Data.Vector.Mutable          as VM
@@ -37,18 +36,13 @@ import qualified Data.Vector.Generic.Mutable  as VGM
 import qualified Data.Vector.Unboxed.Mutable  as UM
 import qualified Data.Vector.Algorithms.Intro as VA
 
-import           Control.Monad.Primitive (PrimMonad, PrimState)
-import           Control.Applicative     ((<|>), (<$>))
-import           Control.Monad.ST        (runST)
-import           Data.Maybe              (isJust)
-
-import           Control.DeepSeq
---import           Criterion.Main
-  
-import           Debug.Trace
-dbg a = trace (">> " L.++ show a) a
-
-
+import Control.Applicative ((<|>))
+import Control.Arrow (first)
+import Control.DeepSeq
+import Control.Monad.Primitive (PrimMonad, PrimState)
+import Control.Monad.ST        (runST)
+import Data.Maybe              (isJust)
+import Data.Function (on)
 
 data Sparse3 a =
   Sparse3
@@ -64,13 +58,13 @@ newtype Sparse3Org = Sparse3Org (Int, Int, Int) deriving (Show, Eq, NFData)
 newtype LocalPos   = LocalPos   (Int, Int, Int) deriving (Show, Eq, Ord, NFData)
 
 instance (NFData a)=> NFData (Sparse3 a) where
-  rnf (Sparse3 sv xyM zM ms mo) = rnf sv `seq` rnf xyM `seq` rnf zM `seq` rnf ms `seq` rnf ms
+  rnf (Sparse3 sv xyM zM ms mo) = rnf sv `seq` rnf xyM `seq` rnf zM `seq` rnf ms `seq` rnf mo
 
+testR, testX, testY, testZ :: Sparse3 Int
 testR = mkSparse3 (Sparse3Org (0,0,0)) (Sparse3Dim (3,3,3)) (V.fromList [((0,0,0),10::Int),((1,1,1),0::Int)])
 testX = mkSparse3 (Sparse3Org (3,0,0)) (Sparse3Dim (3,3,3)) (V.fromList [((4,0,0),11::Int),((4,1,1),1::Int)])
 testY = mkSparse3 (Sparse3Org (0,3,0)) (Sparse3Dim (3,3,3)) (V.fromList [((0,4,0),12::Int),((1,4,1),2::Int)])
 testZ = mkSparse3 (Sparse3Org (0,0,3)) (Sparse3Dim (3,3,3)) (V.fromList [((0,0,4),13::Int),((1,1,4),3::Int)])
-
 
 singleton :: Sparse3Org -> a -> Sparse3 a
 singleton so x = let
@@ -81,23 +75,23 @@ singleton so x = let
   in Sparse3 zV xyM zM sd so
 
 emptySingleton :: Sparse3Org -> Sparse3 a
-emptySingleton so = empty so (Sparse3Dim (1,1,1))  
+emptySingleton so = empty so (Sparse3Dim (1,1,1))
 
 empty :: Sparse3Org -> Sparse3Dim -> Sparse3 a
 empty so sd = let
-  xysize  = getXYMarkerSize sd 
+  xysize  = getXYMarkerSize sd
   xyM = VU.replicate xysize 0 --1
   zM  = VU.empty
   zV  = V.empty
   in Sparse3 zV xyM zM sd so
-             
+
 mkSparse3 :: Sparse3Org -> Sparse3Dim -> V.Vector ((Int, Int, Int), a) -> Sparse3 a
 mkSparse3 so sd vec = let
-  invec   = V.map (\(Just a, b) -> (a, b)) . V.filter (isJust . fst) $ V.map (\(a,b) -> (toLocalPos so sd a, b)) vec
-  svec    = V.modify (VA.sortBy (\a b -> compare (fst a) (fst b))) invec 
+  invec   = V.map (\(Just a, b) -> (a, b)) . V.filter (isJust . fst) $ V.map (first (toLocalPos so sd)) vec
+  svec    = V.modify (VA.sortBy (compare `on` fst)) invec
   xyspace = getXYRange sd
   zsize   = V.length svec
-  xysize  = getXYMarkerSize sd 
+  xysize  = getXYMarkerSize sd
   zmax    = zsize - 1
   xymax   = xysize - 1
   getPos (x, y) = getXYPos sd $ LocalPos (x, y, 0)
@@ -130,9 +124,9 @@ mkSparse3 so sd vec = let
     zM  <- VU.unsafeFreeze zMM
     zV  <- V.unsafeFreeze zVM
     return $ Sparse3 zV xyM zM sd so
-                                                     
+
 lookup :: (Int, Int, Int) -> Sparse3 a -> Maybe a
-lookup t sp = ((sparse3Value sp) V.!) <$> getZIndex t sp
+lookup t sp = (sparse3Value sp V.!) <$> getZIndex t sp
 
 adjust :: V.Vector ((Int,Int,Int), a) -> Sparse3 a -> Sparse3 a
 adjust vec sp = let
@@ -143,17 +137,17 @@ adjust vec sp = let
 -- | Merge 2 @Sparse3@ side by side along the x axis where
 -- the first arguments is the lower one (lower x values than those in
 -- the second argument).
-mergeSparse3 :: (Show a)=> Sparse3 a -> Sparse3 a -> Maybe (Sparse3 a) 
+mergeSparse3 :: (Show a)=> Sparse3 a -> Sparse3 a -> Maybe (Sparse3 a)
 mergeSparse3 sa sb
   | (x0a + dxa) == x0b && testYZ = return $ mergeSparse3_X sa sb
-  | (x0b + dxb) == x0a && testYZ = return $ mergeSparse3_X sb sa 
-                                   
-  | (y0a + dya) == y0b && testZX = return $ mergeSparse3_Y sa sb 
+  | (x0b + dxb) == x0a && testYZ = return $ mergeSparse3_X sb sa
+
+  | (y0a + dya) == y0b && testZX = return $ mergeSparse3_Y sa sb
   | (y0b + dyb) == y0a && testZX = return $ mergeSparse3_Y sb sa
-                                   
+
   | (z0a + dza) == z0b && testXY = return $ mergeSparse3_Z sa sb
   | (z0b + dzb) == z0a && testXY = return $ mergeSparse3_Z sb sa
-  | otherwise                    = trace "noMerge" $ Nothing
+  | otherwise                    = Nothing
   where
     testXY = dxa == dxb && dya == dyb
     testYZ = dya == dyb && dza == dzb
@@ -162,7 +156,6 @@ mergeSparse3 sa sb
     (Sparse3Dim (dxb, dyb, dzb)) = matrixSize sb
     (Sparse3Org (x0a, y0a, z0a)) = matrixOrig sa
     (Sparse3Org (x0b, y0b, z0b)) = matrixOrig sb
-
 
 -- ================================ Internal Functions ===============================
 
@@ -176,12 +169,12 @@ getZIndex t Sparse3{..} = do
     znext
       | xypos >= xymax = VU.length zMarker
       | otherwise      = xyMarker VU.! (xypos+1)
-  
+
   if zinit < znext
     then scanFor zMarker zinit (znext-1) z
     else Nothing
 
-scanFor :: VU.Vector Int -> Int -> Int -> Int -> Maybe Int 
+scanFor :: VU.Vector Int -> Int -> Int -> Int -> Maybe Int
 scanFor vec ip fp v
   | ip >  fp  = Nothing
   | ip == fp  = test ip
@@ -196,19 +189,19 @@ scanFor vec ip fp v
       where
         diff = f - i
         pos  = (i + f) `quot` 2
-        x    = vec VU.! pos 
+        x    = vec VU.! pos
 
 -- | Merge 2 @Sparse3@ side by side along the x axis where
 -- the first arguments is the lower one (lower x values than those in
 -- the second argument).
-mergeSparse3_X :: Sparse3 a -> Sparse3 a -> Sparse3 a 
+mergeSparse3_X :: Sparse3 a -> Sparse3 a -> Sparse3 a
 mergeSparse3_X sa sb = let
   zm  = zMarker sa VU.++ zMarker sb
   xym = xyMarker sa VU.++ VU.map (+ zmaSize) (xyMarker sb)
   sv  = sparse3Value sa V.++ sparse3Value sb
   zmaSize = VU.length $ zMarker sa
-  (Sparse3Dim (dxa, dya, dza)) = matrixSize sa
-  (Sparse3Dim (dxb, dyb, dzb)) = matrixSize sb
+  (Sparse3Dim (dxa, dya, _)) = matrixSize sa
+  (Sparse3Dim (dxb, dyb, _)) = matrixSize sb
   md = Sparse3Dim (dxa+dxb, dya, dyb)
   in Sparse3 sv xym zm md (matrixOrig sa)
 
@@ -216,18 +209,16 @@ mergeSparse3_X sa sb = let
 -- | Merge 2 @Sparse3@ side by side along the x axis where
 -- the first arguments is the lower one (lower x values than those in
 -- the second argument).
-mergeSparse3_Y :: (Show a)=> Sparse3 a -> Sparse3 a -> Sparse3 a 
+mergeSparse3_Y :: (Show a)=> Sparse3 a -> Sparse3 a -> Sparse3 a
 mergeSparse3_Y sa sb = Sparse3 sv xym zm md (matrixOrig sa)
   where
-    zmaSize = VU.length $ zMarker sa
-    zmbSize = VU.length $ zMarker sb
     xyaSize = VU.length $ xyMarker sa
     xybSize = VU.length $ xyMarker sb
 
     (Sparse3Dim (dxa, dya, dza)) = matrixSize sa
-    (Sparse3Dim (dxb, dyb, dzb)) = matrixSize sb
+    (Sparse3Dim (_,   dyb, _  )) = matrixSize sb
     md = Sparse3Dim (dxa, dya+dyb, dza)
-    
+
     sliceAzm = getSlices (xyMarker sa) (zMarker sa) dya
     sliceBzm = getSlices (xyMarker sb) (zMarker sb) dyb
     sliceAsv = getSlices (xyMarker sa) (sparse3Value sa) dya
@@ -240,21 +231,16 @@ mergeSparse3_Y sa sb = Sparse3 sv xym zm md (matrixOrig sa)
     zm  = inter sliceAzm sliceBzm
     sv  = inter sliceAsv sliceBsv
     xym = VU.postscanl' (+) 0 $ inter sliceAxy sliceBxy
- 
+
 -- | Merge 2 @Sparse3@ side by side along the x axis where
 -- the first arguments is the lower one (lower x values than those in
 -- the second argument).
-mergeSparse3_Z :: (Show a)=> Sparse3 a -> Sparse3 a -> Sparse3 a 
+mergeSparse3_Z :: (Show a)=> Sparse3 a -> Sparse3 a -> Sparse3 a
 mergeSparse3_Z sa sb = let
-  zmaSize = VU.length $ zMarker sa
-  zmbSize = VU.length $ zMarker sb
-  xyaSize = VU.length $ xyMarker sa
-  xybSize = VU.length $ xyMarker sb
-  
   (Sparse3Dim (dxa, dya, dza)) = matrixSize sa
-  (Sparse3Dim (dxb, dyb, dzb)) = matrixSize sb
+  (Sparse3Dim (_,   dyb, dzb)) = matrixSize sb
   md = Sparse3Dim (dxa, dya, dza+dzb)
-  
+
   zbm = VU.map (+ dya) (zMarker sb)
   sliceAzm = getSlices (xyMarker sa) (zMarker sa) dya
   sliceBzm = getSlices (xyMarker sb) zbm          dyb
@@ -266,11 +252,11 @@ mergeSparse3_Z sa sb = let
   sv  = inter sliceAsv sliceBsv
 
   in Sparse3 sv xym zm md (matrixOrig sa)
-     
+
 inter :: (VG.Vector v a) => [(v a, Int, Int)] -> [(v a, Int, Int)] -> v a
 inter la lb = let
   func (v, !i, !s) = VG.slice i s v
-  in VG.concat $ zipWith (\a b -> (func a) VG.++ (func b)) la lb
+  in VG.concat $ zipWith ((VG.++) `on` func) la lb
 
 getSlices :: (VG.Vector v a)=> VU.Vector Int -> v a -> Int -> [(v a, Int, Int)]
 getSlices xyV zV step = let
@@ -299,21 +285,19 @@ toLocalPos (Sparse3Org (x0, y0, z0)) (Sparse3Dim (dx, dy, dz)) (x, y, z)
 
 getXYRange :: Sparse3Dim -> [(Int, Int)]
 getXYRange (Sparse3Dim (dx, dy, _))= [(x, y) | x <- [0 .. dx-1], y <- [0 .. dy-1]]
-                                     
+
 getXYPos :: Sparse3Dim -> LocalPos -> Int
 getXYPos (Sparse3Dim (_, dy , _)) (LocalPos (x, y ,_)) = x * dy + y
 
 getXYMarkerSize :: Sparse3Dim -> Int
 getXYMarkerSize (Sparse3Dim (dx, dy, _)) = dx * dy
- 
-
 
 -- ======================== monadic version ==============================
 
 -- | Merge 2 @Sparse3@ side by side along the x axis where
 -- the first arguments is the lower one (lower x values than those in
 -- the second argument).
-mergeSparse3_Y_M :: (Show a)=> Sparse3 a -> Sparse3 a -> Sparse3 a 
+mergeSparse3_Y_M :: (Show a)=> Sparse3 a -> Sparse3 a -> Sparse3 a
 mergeSparse3_Y_M sa sb = runST $ do
   let
     zmaSize = VU.length $ zMarker sa
@@ -321,7 +305,7 @@ mergeSparse3_Y_M sa sb = runST $ do
     xyaSize = VU.length $ xyMarker sa
     xybSize = VU.length $ xyMarker sb
     (Sparse3Dim (dxa, dya, dza)) = matrixSize sa
-    (Sparse3Dim (dxb, dyb, dzb)) = matrixSize sb
+    (Sparse3Dim (_,   dyb, _  )) = matrixSize sb
     md = Sparse3Dim (dxa, dya+dyb, dza)
   zmM  <- UM.new (zmaSize + zmbSize)
   svM  <- VM.new (zmaSize + zmbSize)
@@ -367,7 +351,3 @@ moveSlice va vb ia size ib
   where
     k = ib - ia
     func i = let x = VG.unsafeIndex va i in VGM.unsafeWrite vb (k+i) x
-    
--- ============================================================================
-
- 

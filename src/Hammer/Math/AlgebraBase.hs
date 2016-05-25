@@ -1,12 +1,11 @@
-{-# LANGUAGE MultiParamTypeClasses      #-}
-{-# LANGUAGE FunctionalDependencies     #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE BangPatterns               #-}
-{-# LANGUAGE FlexibleInstances          #-}
-{-# LANGUAGE TypeSynonymInstances       #-}
-{-# LANGUAGE FlexibleContexts           #-}
-{-# LANGUAGE DeriveGeneric              #-}
-
+{-# LANGUAGE
+    MultiParamTypeClasses
+  , FunctionalDependencies
+  , FlexibleInstances
+  , TypeSynonymInstances
+  , FlexibleContexts
+  , DeriveGeneric
+  #-}
 module Hammer.Math.AlgebraBase  where
 
 import GHC.Generics (Generic)
@@ -71,18 +70,23 @@ class DotProd v where
 
   norm :: v -> Double
   norm = sqrt . lensqr
+  {-# INLINE norm #-}
 
   normsqr :: v -> Double
-  normsqr v = (v &. v)
+  normsqr v = v &. v
+  {-# INLINE normsqr #-}
 
   len :: v -> Double
   len = norm
+  {-# INLINE len #-}
 
   lensqr :: v -> Double
   lensqr = normsqr
+  {-# INLINE lensqr #-}
 
   dotprod :: v -> v -> Double
   dotprod = (&.)
+  {-# INLINE dotprod #-}
 
 infix 7 &.
 
@@ -149,8 +153,8 @@ class IdMatrix m where
   idmtx     :: m
 
 {-# RULES
-"transpose is an involution"  forall m. transpose (transpose m) = m
-"inverse is an involution"    forall m. inverse (inverse m) = m
+"transpose is an involution"  transpose . transpose = id
+"inverse is an involution"    inverse . inverse = id
  #-}
 
 class (Transposable m, IdMatrix m, Inversable m) => Orthogonal m o | m -> o, o -> m where
@@ -250,9 +254,9 @@ flipNormal :: UnitVector v n => n -> n
 flipNormal = toNormalUnsafe . neg . fromNormal
 
 normalize :: (MultiVec v, DotProd v) => v -> v
-normalize v = scalarMul (1.0/(len v)) v
+normalize v = scalarMul (1.0 / len v) v
 
-{-# RULES "normalize is idempotent"  forall x. normalize (normalize x) = normalize x #-}
+{-# RULES "normalize is idempotent"  normalize . normalize = normalize #-}
 
 distance :: (MultiVec v, DotProd v) => v -> v -> Double
 distance x y = norm (x &- y)
@@ -271,10 +275,9 @@ angle' x y = acosSafe (fromNormal x &. fromNormal y)
 acosSafe :: (Floating a, Ord a)=> a -> a
 acosSafe x
   -- error limmit 1e-12
-  | x >  1 && x < ( 1.000000000001) = acos 1
+  | x >  1 && x <   1.000000000001  = acos 1
   | x < -1 && x > (-1.000000000001) = acos (-1)
   | otherwise                       = acos x
-
 
 mkVec2 :: (Double, Double) -> Vec2
 mkVec3 :: (Double, Double, Double) -> Vec3

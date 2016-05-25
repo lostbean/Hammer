@@ -1,28 +1,25 @@
-{-# LANGUAGE MultiParamTypeClasses      #-}
-{-# LANGUAGE FunctionalDependencies     #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE FlexibleInstances          #-}
-{-# LANGUAGE TypeSynonymInstances       #-}
-{-# LANGUAGE TypeFamilies               #-}
-{-# OPTIONS_GHC -fno-warn-orphans       #-}
+{-# LANGUAGE
+    FlexibleInstances
+  , GeneralizedNewtypeDeriving
+  , MultiParamTypeClasses
+  , TypeSynonymInstances
+  , TypeFamilies
+  , UndecidableInstances
+  , RankNTypes
+  , TemplateHaskell
+  #-}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 
 module Hammer.Math.AlgebraVec where
 
-import qualified Data.Vector.Unboxed         as U
-import qualified Data.Vector.Generic.Base    as G
-import qualified Data.Vector.Generic.Mutable as M
+import Control.DeepSeq
+import Data.Vector.Unboxed.Deriving
+import Foreign
+import System.Random
 
-import           Control.Monad               (liftM)
-import           Data.Vector                 (Vector)
- 
-import           Foreign
-import           System.Random
-import           Control.DeepSeq
+import Text.Printf (printf)
 
-import           Text.Printf (printf)
-
-import           Hammer.Math.AlgebraBase
-import           Hammer.Math.Unboxed ()
+import Hammer.Math.AlgebraBase
 
 --------------------------------------------------------------------------------
 -- Unit vectors
@@ -196,7 +193,7 @@ instance Storable Vec3 where
     let p = castPtr q :: Ptr Double
         k = sizeOf (undefined::Double)
     x <- peek        p
-    y <- peekByteOff p (k  )
+    y <- peekByteOff p k
     z <- peekByteOff p (k+k)
     return (Vec3 x y z)
 
@@ -204,7 +201,7 @@ instance Storable Vec3 where
     let p = castPtr q :: Ptr Double
         k = sizeOf (undefined::Double)
     poke        p       x
-    pokeByteOff p (k  ) y
+    pokeByteOff p k     y
     pokeByteOff p (k+k) z
 
 instance Dimension Vec3 where dim _ = 3
@@ -268,7 +265,7 @@ instance Storable Vec4 where
     let p = castPtr q :: Ptr Double
         k = sizeOf (undefined::Double)
     x <- peek        p
-    y <- peekByteOff p (k  )
+    y <- peekByteOff p k
     z <- peekByteOff p (k+k)
     w <- peekByteOff p (3*k)
     return (Vec4 x y z w)
@@ -277,7 +274,7 @@ instance Storable Vec4 where
     let p = castPtr q :: Ptr Double
         k = sizeOf (undefined::Double)
     poke        p       x
-    pokeByteOff p (k  ) y
+    pokeByteOff p k     y
     pokeByteOff p (k+k) z
     pokeByteOff p (3*k) w
 
@@ -330,141 +327,34 @@ instance NFData Vec3 where
 instance NFData Vec4 where
   rnf (Vec4 a b c d) = a `seq` b `seq` c `seq` d `seq` ()
 
--- -------------------------------------------- Unbox Normal2 ----------------------------------------------------
+-- -------------------------------------------- Unbox ----------------------------------------------------
 
-newtype instance U.MVector s Normal2 = MV_Normal2 (U.MVector s Vec2)
-newtype instance U.Vector    Normal2 = V_Normal2  (U.Vector    Vec2)
+derivingUnbox "Vec2"
+    [t| Vec2 -> (Double, Double) |]
+    [| \ (Vec2 x y) -> (x, y) |]
+    [| \ (x, y) -> (Vec2 x y) |]
 
-instance U.Unbox Normal2
+derivingUnbox "Vec3"
+    [t| Vec3 -> (Double, Double, Double) |]
+    [| \ (Vec3 x y z) -> (x, y, z) |]
+    [| \ (x, y, z) -> (Vec3 x y z) |]
 
-instance M.MVector U.MVector Normal2 where
-  {-# INLINE basicLength #-}
-  {-# INLINE basicUnsafeSlice #-}
-  {-# INLINE basicOverlaps #-}
-  {-# INLINE basicUnsafeNew #-}
-  {-# INLINE basicUnsafeReplicate #-}
-  {-# INLINE basicUnsafeRead #-}
-  {-# INLINE basicUnsafeWrite #-}
-  {-# INLINE basicClear #-}
-  {-# INLINE basicSet #-}
-  {-# INLINE basicUnsafeCopy #-}
-  {-# INLINE basicUnsafeGrow #-}
-  basicLength (MV_Normal2 v)                      = M.basicLength v
-  basicUnsafeSlice i n (MV_Normal2 v)             = MV_Normal2 $ M.basicUnsafeSlice i n v
-  basicOverlaps (MV_Normal2 v1) (MV_Normal2 v2)   = M.basicOverlaps v1 v2
-  basicUnsafeNew n                                = MV_Normal2 `liftM` M.basicUnsafeNew n
-  basicUnsafeReplicate n (Normal2 x)              = MV_Normal2 `liftM` M.basicUnsafeReplicate n x
-  basicUnsafeRead (MV_Normal2 v) i                = M.basicUnsafeRead v i >>= (return . Normal2)
-  basicUnsafeWrite (MV_Normal2 v) i (Normal2 x)   = M.basicUnsafeWrite v i x
-  basicClear (MV_Normal2 v)                       = M.basicClear v
-  basicSet (MV_Normal2 v) (Normal2 x)             = M.basicSet v x
-  basicUnsafeCopy (MV_Normal2 v1) (MV_Normal2 v2) = M.basicUnsafeCopy v1 v2
-  basicUnsafeGrow (MV_Normal2 v) n                = MV_Normal2 `liftM` M.basicUnsafeGrow v n
+derivingUnbox "Vec4"
+    [t| Vec4 -> (Double, Double, Double, Double) |]
+    [| \ (Vec4 x y z t) -> (x, y, z, t) |]
+    [| \ (x, y, z, t) -> (Vec4 x y z t) |]
 
-instance G.Vector U.Vector Normal2 where
-  {-# INLINE basicUnsafeFreeze #-}
-  {-# INLINE basicUnsafeThaw #-}
-  {-# INLINE basicLength #-}
-  {-# INLINE basicUnsafeSlice #-}
-  {-# INLINE basicUnsafeIndexM #-}
-  {-# INLINE elemseq #-}
-  basicUnsafeFreeze (MV_Normal2 v)              = V_Normal2 `liftM` G.basicUnsafeFreeze v
-  basicUnsafeThaw (V_Normal2 v)                 = MV_Normal2 `liftM` G.basicUnsafeThaw v
-  basicLength (V_Normal2 v)                     = G.basicLength v
-  basicUnsafeSlice i n (V_Normal2 v)            = V_Normal2 $ G.basicUnsafeSlice i n v
-  basicUnsafeIndexM (V_Normal2 v) i             = G.basicUnsafeIndexM v i >>= (return . Normal2)
-  basicUnsafeCopy (MV_Normal2 mv) (V_Normal2 v) = G.basicUnsafeCopy mv v
-  elemseq _ (Normal2 x) t                       = G.elemseq (undefined :: Vector a) x t
+derivingUnbox "Normal2"
+    [t| Normal2 -> (Double, Double) |]
+    [| \ (Normal2 (Vec2 x y)) -> (x, y) |]
+    [| \ (x, y) -> (Normal2 (Vec2 x y)) |]
 
--- -------------------------------------------- Unbox Normal3 ----------------------------------------------------
+derivingUnbox "Normal3"
+    [t| Normal3 -> (Double, Double, Double) |]
+    [| \ (Normal3 (Vec3 x y z)) -> (x, y, z) |]
+    [| \ (x, y, z) -> (Normal3 (Vec3 x y z)) |]
 
-newtype instance U.MVector s Normal3 = MV_Normal3 (U.MVector s Vec3)
-newtype instance U.Vector    Normal3 = V_Normal3  (U.Vector    Vec3)
-
-instance U.Unbox Normal3
-
-instance M.MVector U.MVector Normal3 where
-  {-# INLINE basicLength #-}
-  {-# INLINE basicUnsafeSlice #-}
-  {-# INLINE basicOverlaps #-}
-  {-# INLINE basicUnsafeNew #-}
-  {-# INLINE basicUnsafeReplicate #-}
-  {-# INLINE basicUnsafeRead #-}
-  {-# INLINE basicUnsafeWrite #-}
-  {-# INLINE basicClear #-}
-  {-# INLINE basicSet #-}
-  {-# INLINE basicUnsafeCopy #-}
-  {-# INLINE basicUnsafeGrow #-}
-  basicLength (MV_Normal3 v)                      = M.basicLength v
-  basicUnsafeSlice i n (MV_Normal3 v)             = MV_Normal3 $ M.basicUnsafeSlice i n v
-  basicOverlaps (MV_Normal3 v1) (MV_Normal3 v2)   = M.basicOverlaps v1 v2
-  basicUnsafeNew n                                = MV_Normal3 `liftM` M.basicUnsafeNew n
-  basicUnsafeReplicate n (Normal3 x)              = MV_Normal3 `liftM` M.basicUnsafeReplicate n x
-  basicUnsafeRead (MV_Normal3 v) i                = M.basicUnsafeRead v i >>= (return . Normal3)
-  basicUnsafeWrite (MV_Normal3 v) i (Normal3 x)   = M.basicUnsafeWrite v i x
-  basicClear (MV_Normal3 v)                       = M.basicClear v
-  basicSet (MV_Normal3 v) (Normal3 x)             = M.basicSet v x
-  basicUnsafeCopy (MV_Normal3 v1) (MV_Normal3 v2) = M.basicUnsafeCopy v1 v2
-  basicUnsafeGrow (MV_Normal3 v) n                = MV_Normal3 `liftM` M.basicUnsafeGrow v n
-
-instance G.Vector U.Vector Normal3 where
-  {-# INLINE basicUnsafeFreeze #-}
-  {-# INLINE basicUnsafeThaw #-}
-  {-# INLINE basicLength #-}
-  {-# INLINE basicUnsafeSlice #-}
-  {-# INLINE basicUnsafeIndexM #-}
-  {-# INLINE elemseq #-}
-  basicUnsafeFreeze (MV_Normal3 v)              = V_Normal3 `liftM` G.basicUnsafeFreeze v
-  basicUnsafeThaw (V_Normal3 v)                 = MV_Normal3 `liftM` G.basicUnsafeThaw v
-  basicLength (V_Normal3 v)                     = G.basicLength v
-  basicUnsafeSlice i n (V_Normal3 v)            = V_Normal3 $ G.basicUnsafeSlice i n v
-  basicUnsafeIndexM (V_Normal3 v) i             = G.basicUnsafeIndexM v i >>= (return . Normal3)
-  basicUnsafeCopy (MV_Normal3 mv) (V_Normal3 v) = G.basicUnsafeCopy mv v
-  elemseq _ (Normal3 x) t                       = G.elemseq (undefined :: Vector a) x t
-
-
--- -------------------------------------------- Unbox Normal4 ----------------------------------------------------
-
-newtype instance U.MVector s Normal4 = MV_Normal4 (U.MVector s Vec4)
-newtype instance U.Vector    Normal4 = V_Normal4  (U.Vector    Vec4)
-
-instance U.Unbox Normal4
-
-instance M.MVector U.MVector Normal4 where
-  {-# INLINE basicLength #-}
-  {-# INLINE basicUnsafeSlice #-}
-  {-# INLINE basicOverlaps #-}
-  {-# INLINE basicUnsafeNew #-}
-  {-# INLINE basicUnsafeReplicate #-}
-  {-# INLINE basicUnsafeRead #-}
-  {-# INLINE basicUnsafeWrite #-}
-  {-# INLINE basicClear #-}
-  {-# INLINE basicSet #-}
-  {-# INLINE basicUnsafeCopy #-}
-  {-# INLINE basicUnsafeGrow #-}
-  basicLength (MV_Normal4 v)                      = M.basicLength v
-  basicUnsafeSlice i n (MV_Normal4 v)             = MV_Normal4 $ M.basicUnsafeSlice i n v
-  basicOverlaps (MV_Normal4 v1) (MV_Normal4 v2)   = M.basicOverlaps v1 v2
-  basicUnsafeNew n                                = MV_Normal4 `liftM` M.basicUnsafeNew n
-  basicUnsafeReplicate n (Normal4 x)              = MV_Normal4 `liftM` M.basicUnsafeReplicate n x
-  basicUnsafeRead (MV_Normal4 v) i                = M.basicUnsafeRead v i >>= (return . Normal4)
-  basicUnsafeWrite (MV_Normal4 v) i (Normal4 x)   = M.basicUnsafeWrite v i x
-  basicClear (MV_Normal4 v)                       = M.basicClear v
-  basicSet (MV_Normal4 v) (Normal4 x)             = M.basicSet v x
-  basicUnsafeCopy (MV_Normal4 v1) (MV_Normal4 v2) = M.basicUnsafeCopy v1 v2
-  basicUnsafeGrow (MV_Normal4 v) n                = MV_Normal4 `liftM` M.basicUnsafeGrow v n
-
-instance G.Vector U.Vector Normal4 where
-  {-# INLINE basicUnsafeFreeze #-}
-  {-# INLINE basicUnsafeThaw #-}
-  {-# INLINE basicLength #-}
-  {-# INLINE basicUnsafeSlice #-}
-  {-# INLINE basicUnsafeIndexM #-}
-  {-# INLINE elemseq #-}
-  basicUnsafeFreeze (MV_Normal4 v)              = V_Normal4 `liftM` G.basicUnsafeFreeze v
-  basicUnsafeThaw (V_Normal4 v)                 = MV_Normal4 `liftM` G.basicUnsafeThaw v
-  basicLength (V_Normal4 v)                     = G.basicLength v
-  basicUnsafeSlice i n (V_Normal4 v)            = V_Normal4 $ G.basicUnsafeSlice i n v
-  basicUnsafeIndexM (V_Normal4 v) i             = G.basicUnsafeIndexM v i >>= (return . Normal4)
-  basicUnsafeCopy (MV_Normal4 mv) (V_Normal4 v) = G.basicUnsafeCopy mv v
-  elemseq _ (Normal4 x) t                       = G.elemseq (undefined :: Vector a) x t
+derivingUnbox "Normal4"
+    [t| Normal4 -> (Double, Double, Double, Double) |]
+    [| \ (Normal4 (Vec4 x y z t)) -> (x, y, z, t) |]
+    [| \ (x, y, z, t) -> (Normal4 (Vec4 x y z t)) |]

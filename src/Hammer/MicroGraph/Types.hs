@@ -1,11 +1,15 @@
-{-# LANGUAGE FlexibleInstances          #-}
-{-# LANGUAGE FlexibleContexts           #-}
-{-# LANGUAGE UndecidableInstances       #-}
-{-# LANGUAGE TypeFamilies               #-}
-{-# LANGUAGE MultiParamTypeClasses      #-}
-{-# LANGUAGE RecordWildCards            #-}
-{-# LANGUAGE DeriveGeneric              #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE
+    DeriveGeneric
+  , FlexibleContexts
+  , FlexibleInstances
+  , GeneralizedNewtypeDeriving
+  , MultiParamTypeClasses
+  , TypeSynonymInstances
+  , TypeFamilies
+  , UndecidableInstances
+  , RankNTypes
+  , TemplateHaskell
+  #-}
 
 module Hammer.MicroGraph.Types
        ( GrainID
@@ -55,22 +59,17 @@ import qualified Data.Set            as S
 import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet        as HS
 
-import qualified Data.Vector.Unboxed         as U
-import qualified Data.Vector.Generic.Base    as G
-import qualified Data.Vector.Generic.Mutable as M
+import Control.Monad       (liftM)
+import Data.Vector.Unboxed.Deriving
+import Data.HashMap.Strict (HashMap)
+import Data.HashSet        (HashSet)
+import Data.Hashable       (Hashable, hashWithSalt)
+import Data.IntSet         (IntSet)
+import Data.Set            (Set)
+import GHC.Generics        (Generic)
 
-import           Control.Monad       (liftM)
-import           Data.Vector         (Vector)
-import           Data.HashMap.Strict (HashMap)
-import           Data.HashSet        (HashSet)
-import           Data.Hashable       (Hashable, hashWithSalt)
-import           Data.IntSet         (IntSet)
-import           Data.Set            (Set)
-import           GHC.Generics        (Generic)
-
-import           Control.DeepSeq
-import           Data.Binary
-import           Foreign
+import Control.DeepSeq
+import Data.Binary
 
 --import           Debug.Trace
 
@@ -169,7 +168,7 @@ mkMultiVertexID = mkMultiVertexID' . map GrainID
 
 
 mkFaceID' :: (GrainID, GrainID) -> FaceID
-mkFaceID' = (\(a,b) -> FaceID  a b) . fast2DSort
+mkFaceID' = uncurry FaceID . fast2DSort
 
 mkEdgeID' :: (FaceID, FaceID, FaceID) -> EdgeID
 mkEdgeID' = (\(a,b,c) -> EdgeID a b c) . fast3DSort
@@ -285,9 +284,9 @@ instance Ord FaceID where
     case compare ai bi of
       EQ -> comp2DSort a1 a2 b1 b2
       x  -> x
-  compare (AlterFaceID _ _ _) (FaceID _ _)        = GT
-  compare (FaceID _ _)        (AlterFaceID _ _ _) = LT
-  compare (FaceID a1 a2)      (FaceID b1 b2)      = comp2DSort a1 a2 b1 b2
+  compare AlterFaceID{}   FaceID{}      = GT
+  compare FaceID{}        AlterFaceID{} = LT
+  compare (FaceID a1 a2) (FaceID b1 b2) = comp2DSort a1 a2 b1 b2
 
 {-# INLINE comp2DSort #-}
 comp2DSort :: (Ord a)=> a -> a -> a -> a -> Ordering
@@ -428,46 +427,7 @@ alterHM f k m = case f $ HM.lookup k m of
 
 -- -------------------------------------------- Unbox GrainID ----------------------------------------------------
 
-newtype instance U.MVector s GrainID = MV_GrainID (U.MVector s Int)
-newtype instance U.Vector    GrainID = V_GrainID  (U.Vector    Int)
-
-instance U.Unbox GrainID
-
-instance M.MVector U.MVector GrainID where
-  {-# INLINE basicLength #-}
-  {-# INLINE basicUnsafeSlice #-}
-  {-# INLINE basicOverlaps #-}
-  {-# INLINE basicUnsafeNew #-}
-  {-# INLINE basicUnsafeReplicate #-}
-  {-# INLINE basicUnsafeRead #-}
-  {-# INLINE basicUnsafeWrite #-}
-  {-# INLINE basicClear #-}
-  {-# INLINE basicSet #-}
-  {-# INLINE basicUnsafeCopy #-}
-  {-# INLINE basicUnsafeGrow #-}
-  basicLength (MV_GrainID v)                      = M.basicLength v
-  basicUnsafeSlice i n (MV_GrainID v)             = MV_GrainID $ M.basicUnsafeSlice i n v
-  basicOverlaps (MV_GrainID v1) (MV_GrainID v2)   = M.basicOverlaps v1 v2
-  basicUnsafeNew n                                = MV_GrainID `liftM` M.basicUnsafeNew n
-  basicUnsafeReplicate n (GrainID x)              = MV_GrainID `liftM` M.basicUnsafeReplicate n x
-  basicUnsafeRead (MV_GrainID v) i                = M.basicUnsafeRead v i >>= (return . GrainID)
-  basicUnsafeWrite (MV_GrainID v) i (GrainID x)   = M.basicUnsafeWrite v i x
-  basicClear (MV_GrainID v)                       = M.basicClear v
-  basicSet (MV_GrainID v) (GrainID x)             = M.basicSet v x
-  basicUnsafeCopy (MV_GrainID v1) (MV_GrainID v2) = M.basicUnsafeCopy v1 v2
-  basicUnsafeGrow (MV_GrainID v) n                = MV_GrainID `liftM` M.basicUnsafeGrow v n
-
-instance G.Vector U.Vector GrainID where
-  {-# INLINE basicUnsafeFreeze #-}
-  {-# INLINE basicUnsafeThaw #-}
-  {-# INLINE basicLength #-}
-  {-# INLINE basicUnsafeSlice #-}
-  {-# INLINE basicUnsafeIndexM #-}
-  {-# INLINE elemseq #-}
-  basicUnsafeFreeze (MV_GrainID v)              = V_GrainID `liftM` G.basicUnsafeFreeze v
-  basicUnsafeThaw (V_GrainID v)                 = MV_GrainID `liftM` G.basicUnsafeThaw v
-  basicLength (V_GrainID v)                     = G.basicLength v
-  basicUnsafeSlice i n (V_GrainID v)            = V_GrainID $ G.basicUnsafeSlice i n v
-  basicUnsafeIndexM (V_GrainID v) i             = G.basicUnsafeIndexM v i >>= (return . GrainID)
-  basicUnsafeCopy (MV_GrainID mv) (V_GrainID v) = G.basicUnsafeCopy mv v
-  elemseq _ (GrainID x) t                       = G.elemseq (undefined :: Vector a) x t
+derivingUnbox "GrainID"
+    [t| GrainID -> Int |]
+    [| unGrainID |]
+    [| mkGrainID |]
