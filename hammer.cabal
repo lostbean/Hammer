@@ -93,9 +93,9 @@ Library
                 , base64-bytestring       >= 1.0
                 , mcl                     == 0.1
                 , vtk                     == 0.1.0
+                , linear-vect
 
-  exposed-modules:  Hammer.Math.Algebra
-                    Hammer.Math.Array
+  exposed-modules:  Hammer.Math.Array
                     Hammer.Math.SortSeq
                     Hammer.Math.SparseMatrix
                     Hammer.Math.Optimum
@@ -109,13 +109,7 @@ Library
 
                     Hammer.VTK
 
-  other-modules:
-                    Hammer.Math.AlgebraBase
-                    Hammer.Math.AlgebraVec
-                    Hammer.Math.AlgebraMat
-                    Hammer.Math.MatrixTools
-
-                    Hammer.MicroGraph.Types
+  other-modules:    Hammer.MicroGraph.Types
                     Hammer.MicroGraph.Base
                     Hammer.MicroGraph.GraphBuilder
 

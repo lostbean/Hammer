@@ -39,7 +39,7 @@ import           Text.Printf         (printf)
 
 import           System.Random
 
-import           Hammer.Math.AlgebraBase
+import           Linear.Class
 
 -- ====================================== Array ====================================
 
@@ -96,8 +96,9 @@ genArray func shape = let
 
 -- ======================================= Matrix2D ======================================
 
-type Matrix2D  = Array (Int, Int) Double
-type UVector = VU.Vector Double
+type Matrix2D = Array (Int, Int) Double
+type Matrix2  = Array (Int, Int)
+type UVector  = VU.Vector Double
 
 isMatrixSameShape :: Matrix2D -> Matrix2D -> Bool
 isMatrixSameShape mtr1 mtr2 = (ixSize $ shape mtr1) == (ixSize $ shape mtr2)
@@ -123,8 +124,8 @@ matrixToRows Array{..} = let
   func r       = VU.generate cols (\c -> array VU.! (pos shape (r, c)))
   in V.generate rows func
 
--- TODO split Matrix class in 3: IdMatrix, Transposable, Inversable and make Matrix as super class
-instance Transposable Matrix2D where
+-- TODO split Matrix class in 3: IdMatrix, Transpose, Inversable and make Matrix as super class
+instance Transpose Matrix2D Matrix2D where
   transpose mtr = let
     rows = V.toList $ matrixToRows mtr
     arr  = VU.concat rows
@@ -152,7 +153,7 @@ instance AbelianGroup Matrix2D where
   neg mtr = mtr {array = VU.map negate (array mtr)}
   zero = error "[Array] Use zeroMatrix2D instead."
 
-instance MultiVec Matrix2D where
+instance LinearMap Double Matrix2 where
   scalarMul s mtr = mtr {array = VU.map (s*) (array mtr)}
   mapVec    f mtr = mtr {array = VU.map f    (array mtr)}
 
@@ -184,7 +185,7 @@ instance RightModule UVector Matrix2D where
     in VU.convert $ V.map (&. vrow) cols
 
 instance Diagonal UVector Matrix2D where
-  diagMtx vec = let
+  diag vec = let
     shp = Shape (m, m)
     m = VU.length vec
     func x
@@ -229,11 +230,11 @@ instance AbelianGroup (VU.Vector Double) where
 zeroVector :: Int -> VU.Vector Double
 zeroVector = flip VU.replicate 0.0
 
-instance MultiVec (VU.Vector Double) where
+instance LinearMap Double VU.Vector where
   scalarMul s = VU.map (s*)
   mapVec    f = VU.map f
 
-instance DotProd (VU.Vector Double) where
+instance DotProd Double VU.Vector where
   (&.) v1 v2 = VU.sum $ pointwise v1 v2
 
 instance Pointwise (VU.Vector Double) where

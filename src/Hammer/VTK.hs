@@ -19,13 +19,11 @@ import           Data.Maybe            (mapMaybe)
 import           Data.Monoid           ((<>))
 import           Data.Vector.Unboxed   (Vector, Unbox)
 import           Data.VTK
+import           Linear.Vect
+import           Linear.Mat
 
 import           Hammer.MicroGraph
-import           Hammer.Math.Algebra
 import           Hammer.VoxBox
-
---import           Debug.Trace
---dbg a = trace ("@@@@@@@>> " ++ show a) a
 
 -- =======================================================================================
 
@@ -94,7 +92,7 @@ getExtendedVoxBox vbox = let
 
 -- | Calculate all the voxel's corner points (vertices from voxel box) by calculating the
 -- base point of each 'VoxelPos' in a extended range.
-getVoxBoxCornersPoints :: VoxBoxExt a -> Vector Vec3
+getVoxBoxCornersPoints :: VoxBoxExt a -> Vector Vec3D
 getVoxBoxCornersPoints (VoxBoxExt vbox) = let
   dimData = dimension vbox
   origin  = vbrOrigin dimData
@@ -120,7 +118,7 @@ renderVoxBoxVTK vbox attrs = let
   in mkRLGVTK "VoxBoxPoints" vx vy vz attrs
 
 renderVoxElemListVTK :: (RenderCell (VTKElem elem), RenderVox elem)=>
-                        VoxBox a -> [elem] -> VTK Vec3
+                        VoxBox a -> [elem] -> VTK Vec3D
 renderVoxElemListVTK vbox v = let
   vbext = getExtendedVoxBox vbox
   ps    = getVoxBoxCornersPoints vbext
@@ -130,7 +128,7 @@ renderVoxElemListVTK vbox v = let
   in mkUGVTK "MicroGraph" ps rs [] [attr]
 
 renderVoxElemVTK :: (Unbox elem, RenderCell (VTKElem elem), RenderVox elem)=>
-                    VoxBox a -> [V.Vector elem] -> VTK Vec3
+                    VoxBox a -> [V.Vector elem] -> VTK Vec3D
 renderVoxElemVTK vbox v = let
   vbext = getExtendedVoxBox vbox
   ps    = getVoxBoxCornersPoints vbext
@@ -140,21 +138,21 @@ renderVoxElemVTK vbox v = let
   in mkUGVTK "MicroGraph" ps rs [] [attr]
 
 renderAllElemProp :: (RenderCell (VTKElem elem), RenderVox elem, HasPropValue prop)
-                  => VoxBox a -> [prop (V.Vector elem)] -> VTK Vec3
+                  => VoxBox a -> [prop (V.Vector elem)] -> VTK Vec3D
 renderAllElemProp vbox vec = let
   ps = mapMaybe getPropValue vec
   in renderVoxElemVTK vbox ps
 
-renderMicroGrainsVTK :: VoxBox a -> MicroVoxel -> VTK Vec3
+renderMicroGrainsVTK :: VoxBox a -> MicroVoxel -> VTK Vec3D
 renderMicroGrainsVTK vbox mv = renderAllElemProp vbox (HM.elems $ microGrains mv)
 
-renderMicroEdgesVTK :: VoxBox a -> MicroVoxel -> VTK Vec3
+renderMicroEdgesVTK :: VoxBox a -> MicroVoxel -> VTK Vec3D
 renderMicroEdgesVTK vbox mv = renderAllElemProp vbox (HM.elems $ microEdges mv)
 
-renderMicroFacesVTK :: VoxBox a -> MicroVoxel -> VTK Vec3
+renderMicroFacesVTK :: VoxBox a -> MicroVoxel -> VTK Vec3D
 renderMicroFacesVTK vbox mv = renderAllElemProp vbox (HM.elems $ microFaces mv)
 
-renderMicroVertexVTK :: VoxBox a -> MicroVoxel -> VTK Vec3
+renderMicroVertexVTK :: VoxBox a -> MicroVoxel -> VTK Vec3D
 renderMicroVertexVTK vbox mv = let
   ps = mapMaybe getPropValue (HM.elems $ microVertex mv)
   in renderVoxElemListVTK vbox ps
@@ -165,12 +163,12 @@ instance RenderCell (Int, Int, Int, Int) where
   makeCell (a,b,c,d) = U.fromList [a,b,c,d]
   getType _          = VTK_QUAD
 
-instance RenderElemVTK Normal3
-instance RenderElemVTK Vec3
-instance RenderElemVTK Vec2
-instance RenderElemVTK Mat3
+instance RenderElemVTK Normal3D
+instance RenderElemVTK Vec3D
+instance RenderElemVTK Vec2D
+instance RenderElemVTK Mat3D
 
-instance RenderPoint Mat3 where
+instance RenderPoint Mat3D where
   renderPoint (Mat3 x y z) =
     renderPoint x <>
     renderPoint y <>
@@ -182,7 +180,7 @@ instance RenderPoint Mat3 where
   pointNumberType = const VTK_Float
   pointNumberComp = const 9
 
-instance RenderPoint Vec3 where
+instance RenderPoint Vec3D where
   renderPoint (Vec3 x y z) =
     renderPoint x <>
     renderPoint y <>
@@ -194,7 +192,7 @@ instance RenderPoint Vec3 where
   pointNumberType = const VTK_Float
   pointNumberComp = const 3
 
-instance RenderPoint Vec2 where
+instance RenderPoint Vec2D where
   renderPoint (Vec2 x y) =
     renderPoint x <>
     renderPoint y <>
@@ -206,7 +204,7 @@ instance RenderPoint Vec2 where
   pointNumberType = const VTK_Float
   pointNumberComp = const 3
 
-instance RenderPoint Normal3 where
+instance RenderPoint Normal3D where
   renderPoint = renderPoint . fromNormal
   renderBinaryPoint = renderBinaryPoint . fromNormal
   pointNumberType = const VTK_Float

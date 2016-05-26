@@ -1,8 +1,8 @@
 {-# LANGUAGE
-    BangPatterns
-  , RecordWildCards
-  , FlexibleContexts
+    FlexibleContexts
   , FlexibleInstances
+  , RecordWildCards
+  , ScopedTypeVariables
   #-}
 module Hammer.Math.Optimum
   ( lineSearch
@@ -11,12 +11,13 @@ module Hammer.Math.Optimum
   , BFGScfg (..)
   ) where
 
-import Hammer.Math.Algebra
+import Linear.Vect
+import Linear.Mat ()
 
 -- =================================== Line Search =======================================
 
 -- | Inexact line search algorithm using strong Wolfe conditions.
-lineSearch :: (MultiVec v, DotProd v, AbelianGroup v) => (v -> (Double, v)) -> v -> v -> Double
+lineSearch :: (LinearMap Double v, DotProd Double v) => (v Double -> (Double, v Double)) -> v Double -> v Double -> Double
 lineSearch func x p
   | dphi0 < 0 = upper 0 1
   | otherwise = 1
@@ -76,15 +77,15 @@ defaultBFGS = BFGScfg { epsi = 1e-9, tol = 1e-7, niter = 100 }
 
 -- | Quasi-Newton algorithm BFGS for function minimization. Implementation based on:
 -- "Springer Series in Operations Research and Financial Engineering"
-bfgs :: ( MultiVec v
-        , DotProd v
-        , AbelianGroup v
-        , Tensor m v
-        , Matrix m
-        , LeftModule m v
-        , MultSemiGroup m
-        , MultiVec m
-        ) => BFGScfg -> (v -> (Double, v)) -> v -> v
+bfgs :: forall v m .
+  ( LinearMap Double v
+  , LinearMap Double m
+  , Norm      Double v
+  , SquareMatrix  (m Double)
+  , MultSemiGroup (m Double)
+  , Tensor        (m Double) (v Double)
+  , LeftModule    (m Double) (v Double)
+  ) => BFGScfg -> (v Double -> (Double, v Double)) -> v Double -> v Double
 bfgs BFGScfg{..} func x = go 0 (x, g, idmtx)
   where
     (_, g) = func x
@@ -107,6 +108,7 @@ bfgs BFGScfg{..} func x = go 0 (x, g, idmtx)
         -- Improve first H guess
         h1a = ((y0 &. s0) / (y0 &. y0)) *& idmtx
         -- Update H using estimation technique
+        h1 :: m Double
         h1 = let
           ma = idmtx &- (p0 *& (outer s0 y0))
           mb = idmtx &- (p0 *& (outer y0 s0))
@@ -115,7 +117,10 @@ bfgs BFGScfg{..} func x = go 0 (x, g, idmtx)
 
 -- =================================== Test functions=====================================
 
-testLS   = lineSearch (\(Vec2 x y) -> (x*x + y*y, Vec2 (2*x) (2*y))) (Vec2 1 0) (Vec2 (-4) (-2))
+testLS :: Double
+testLS = lineSearch (\(Vec2 x y) -> (x*x + y*y, Vec2 (2*x) (2*y))) (Vec2 1 0) (Vec2 (-4) (-2))
+
+testBFGS :: Vec2 Double
 testBFGS = bfgs defaultBFGS func (Vec2 100 (431))
   where
     func (Vec2 x y) = (2*x*x + 2*x*y + 2*y*y - 6*x, Vec2 (4*x + 2*y - 6) (2*x + 4*y))

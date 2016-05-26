@@ -69,7 +69,7 @@ import qualified Data.Vector.Unboxed as U
 import           Data.Bits           (complement, (.&.), (.|.))
 import           Data.Vector         (Vector)
 
-import           Hammer.Math.Algebra
+import           Linear.Vect
 import           Hammer.VoxBox.Types
 
 -- ==============================================================================
@@ -234,7 +234,7 @@ evalLinPos vbox dir pos
     vy = (iy - dy/2) + dy * (fromIntegral pos)
     vz = (iz - dz/2) + dz * (fromIntegral pos)
 
-evalDisplacedVoxelPos :: VoxBox a -> CartesianDir -> VoxelPos -> Vec3
+evalDisplacedVoxelPos :: VoxBox a -> CartesianDir -> VoxelPos -> Vec3D
 evalDisplacedVoxelPos vbox dir vpos = let
   v = evalVoxelPos vbox vpos
   VoxelDim dx dy dz = spacing vbox
@@ -247,7 +247,7 @@ evalDisplacedVoxelPos vbox dir vpos = let
 -- the center of Cartesian system if the voxel is positioned at top-front-right octant
 -- e.g. @VoxelPos 0 0 0@ has its center at @Vec3 0 0 0@ and its base at @Vec3 -0.5*dx
 -- -0.5*dy -0.5*dz@ where @dx@, @dy@ and @dz@ are the voxel dimensions.
-evalVoxelPos :: VoxBox a -> VoxelPos -> Vec3
+evalVoxelPos :: VoxBox a -> VoxelPos -> Vec3D
 evalVoxelPos vbox (VoxelPos x y z) = let
   VoxBoxOrigin ix iy iz = origin  vbox
   VoxelDim     dx dy dz = spacing vbox
@@ -258,7 +258,7 @@ evalVoxelPos vbox (VoxelPos x y z) = let
 
 -- | Evaluate the position at the center of the voxel e.g. @VoxelPos 0 0 0@ has its center
 -- at @Vec3 0 0 0@ if the origin is at @Vec3 0 0 0@.
-evalCentralVoxelPos :: VoxBox a -> VoxelPos -> Vec3
+evalCentralVoxelPos :: VoxBox a -> VoxelPos -> Vec3D
 evalCentralVoxelPos vbox (VoxelPos x y z) = let
   VoxBoxOrigin ix iy iz = origin  vbox
   VoxelDim     dx dy dz = spacing vbox
@@ -269,7 +269,7 @@ evalCentralVoxelPos vbox (VoxelPos x y z) = let
 
 -- | Evaluate the face plane given by a point and a normal the face where the point is at
 -- the center of a voxel face.
-evalFacePos :: VoxBox a -> FaceVoxelPos -> Plane Vec3 Normal3
+evalFacePos :: VoxBox a -> FaceVoxelPos -> Plane Vec3D Normal3D
 evalFacePos vbox face = let
   VoxelDim dx dy dz = spacing vbox
   func (a, b) diff = Plane $ (evalVoxelPos vbox a &+ diff, toNormalUnsafe b)
@@ -280,7 +280,7 @@ evalFacePos vbox face = let
 
 -- | Evaluate the four corner points of a given face. The output sequence of corner points
 -- is given in the clockwise direction.
-evalFaceCorners :: VoxBox a -> FaceVoxelPos -> (Vec3, Vec3, Vec3, Vec3)
+evalFaceCorners :: VoxBox a -> FaceVoxelPos -> (Vec3D, Vec3D, Vec3D, Vec3D)
 evalFaceCorners vbox face = let
   VoxelDim dx dy dz = spacing vbox
   func a = (evalVoxelPos vbox a &+)
@@ -289,7 +289,8 @@ evalFaceCorners vbox face = let
     Fy p -> (func p zero, func p (Vec3 0 0 dz), func p (Vec3 dx 0 dz), func p (Vec3 dx 0 0))
     Fz p -> (func p zero, func p (Vec3 dx 0 0), func p (Vec3 dx dy 0), func p (Vec3 0 dy 0))
 
-findIntersection :: (DotProd u, UnitVector v u)=> Plane v u -> Line v u -> Maybe v
+findIntersection :: (Eq a, DotProd a u, UnitVector a v u)
+                 => Plane (v a) (u a) -> Line (v a) (u a) -> Maybe (v a)
 findIntersection (Plane (p0, n)) (Line (l0, l))
   | kb == 0            = Nothing
   | kb == 0 && ka == 0 = Just $ p0
@@ -298,7 +299,7 @@ findIntersection (Plane (p0, n)) (Line (l0, l))
     ka = (p0 &- l0) &. (fromNormal n)
     kb = l &. n
 
-getEdgeEndPoints :: VoxBox a -> (VoxelPos, VoxelPos) -> (Vec3, Vec3)
+getEdgeEndPoints :: VoxBox a -> (VoxelPos, VoxelPos) -> (Vec3D, Vec3D)
 getEdgeEndPoints vbox (v1,v2) = let
   func = evalVoxelPos vbox
   in (func v1, func v2)
@@ -442,7 +443,7 @@ getRangePos VoxBoxRange{..} = let
 -- ================================ Fast and compact list of Voxel =======================
 
 {-# INLINE fastEvalVoxelPos #-}
-fastEvalVoxelPos :: VoxBox a -> Int -> Vec3
+fastEvalVoxelPos :: VoxBox a -> Int -> Vec3D
 fastEvalVoxelPos VoxBox{..} i = let
   VoxBoxOrigin  ix iy iz = origin
   VoxelDim      dx dy dz = spacing

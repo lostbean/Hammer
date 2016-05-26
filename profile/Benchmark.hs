@@ -23,7 +23,7 @@ import           Hammer.VTK
 import           Hammer.VTK.VoxBox
 import           Hammer.VoxBox
 import           Hammer.VoxConn
-import           Hammer.Math.Algebra
+import           Linear.Vect
 
 genGraph :: (RandomGen g)=> g -> Int -> [((Int, Int), Double)]
 genGraph g n = let
