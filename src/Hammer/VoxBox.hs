@@ -67,7 +67,6 @@ import qualified Data.Vector         as V
 import qualified Data.Vector.Unboxed as U
 
 import           Data.Bits           (complement, (.&.), (.|.))
-import           Data.Vector         (Vector)
 
 import           Linear.Vect
 import           Hammer.VoxBox.Types
@@ -177,7 +176,7 @@ zDir :: VoxelPos
 zDir = VoxelPos 0 0 1
 
 {-# INLINE getCrossPos #-}
-getCrossPos :: CartesianDir -> VoxelPos -> Vector (VoxelPos, CrossDir)
+getCrossPos :: CartesianDir -> VoxelPos -> V.Vector (VoxelPos, CrossDir)
 getCrossPos dir p = case dir of
   XDir -> V.fromList [getXYplus p, getXYminus p, getXZplus p, getXZminus p]
   YDir -> V.fromList [getYXplus p, getYXminus p, getYZplus p, getYZminus p]
@@ -382,7 +381,7 @@ mergeVoxBoxRange b1 b2
       new_org = VoxelPos lx ly lz
       in VoxBoxRange new_org dimbox
 
-posSet2VoxBox :: Vector VoxelPos -> VoxBoxRange
+posSet2VoxBox :: V.Vector VoxelPos -> VoxBoxRange
 posSet2VoxBox ps = let
   zeroBox
     | V.length ps > 0 = V.head ps

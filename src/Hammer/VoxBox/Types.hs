@@ -9,7 +9,22 @@
   , TemplateHaskell
   #-}
 
-module Hammer.VoxBox.Types where
+module Hammer.VoxBox.Types
+  ( VoxelPos (..)
+  , EdgeVoxelPos (..)
+  , FaceVoxelPos (..)
+  , VoxBoxOrigin (..)
+  , VoxBoxRange (..)
+  , VoxBoxDim (..)
+  , VoxelDim (..)
+  , VoxBox (..)
+  , CartesianDir (..)
+  , CrossDir (..)
+  , WallBoxRange (..)
+  , FacePos (..)
+  , EdgePos (..)
+  , VID
+  ) where
 
 import Control.DeepSeq
 import Data.Hashable       (Hashable, hashWithSalt)
