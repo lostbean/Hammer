@@ -17,13 +17,13 @@ import           System.Random.TF.Gen
 import           Control.DeepSeq
 
 import           Hammer.Graph
-import qualified Hammer.Graph.Sparse as S
+import qualified Data.Graph.Sparse as S
 import           Hammer.MicroGraph
 import           Hammer.VTK
-import           Hammer.VTK.VoxBox
 import           Hammer.VoxBox
 import           Hammer.VoxConn
 import           Linear.Vect
+import           Linear.Mat
 
 genGraph :: (RandomGen g)=> g -> Int -> [((Int, Int), Double)]
 genGraph g n = let
@@ -47,12 +47,6 @@ testuvec n =
 testvec :: Int -> V.Vector Int
 testvec n =
     L.foldl' (\m k -> k `V.cons` m) V.empty [0..n]
-
-main2 :: IO ()
-main2 = do
-  ms  <- (VU.replicateM 10000 R.randomIO :: IO (VU.Vector Mat4))
-  let func = VU.foldl (&+) zero . VU.map (fst . symmEigen)
-  print $ func ms
 
 instance NFData (Graph Int Double) where
   rnf = rnf . graph

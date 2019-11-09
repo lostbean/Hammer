@@ -14,7 +14,7 @@ import Debug.Trace
 dbg x a = trace (show x ++ " " ++ show a) a
 
 runChecker =  do
-  let myArgs = Args {replay = Nothing, maxSuccess = 1000, maxDiscardRatio = 50, maxSize = 1000, chatty = True}
+  let myArgs = Args {replay = Nothing, maxSuccess = 1000, maxShrinks = 10, maxDiscardRatio = 50, maxSize = 1000, chatty = True}
   print "Testing GrainFinder.."
   quickCheckWith myArgs test_voxelPosConv
   quickCheckWith myArgs test_checkPosBound

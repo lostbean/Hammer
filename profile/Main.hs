@@ -9,7 +9,6 @@ import           Prelude
 
 import           Hammer.MicroGraph
 import           Hammer.VTK
-import           Hammer.VTK.VoxBox
 import           Hammer.VoxBox
 import           Hammer.VoxConn
 
