@@ -108,9 +108,9 @@ test_GrainFinder fout = case (getMicroVoxel . resetGrainIDs) <$> grainFinder (==
     attrs = [mkPointAttr "GrainID" (\a -> unGrainID $ vec VU.! a)]
     in do
       writeUniVTKfile (fout ++ ".vtr")        True   vtk
-      writeUniVTKfile (fout ++ "_faces.vtu")  True $ renderMicroFacesVTK  vboxTest micro
-      writeUniVTKfile (fout ++ "_edges.vtu")  True $ renderMicroEdgesVTK  vboxTest micro
-      writeUniVTKfile (fout ++ "_vertex.vtu") True $ renderMicroVertexVTK vboxTest micro
+      writeUniVTKfile (fout ++ "_faces.vtp")  True $ renderMicroFacesVTK  vboxTest micro
+      writeUniVTKfile (fout ++ "_edges.vtp")  True $ renderMicroEdgesVTK  vboxTest micro
+      writeUniVTKfile (fout ++ "_vertex.vtp") True $ renderMicroVertexVTK vboxTest micro
 
 vboxTest = VoxBox { dimension = mkStdVoxBoxRange (VoxBoxDim 21   15   1)
                   , origin    = VoxBoxOrigin  0    0    0

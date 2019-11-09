@@ -125,7 +125,7 @@ renderVoxElemListVTK vbox v = let
   color = U.generate (length v) id
   rs    = map (renderVox vbext) v
   attr  = mkCellAttr "color" (\a _ _ -> color U.! a)
-  in mkUGVTK "MicroGraph" ps rs [] [attr]
+  in mkPolyDataVTK "MicroGraph" ps rs [] [attr]
 
 renderVoxElemVTK :: (Unbox elem, RenderCell (VTKElem elem), RenderVox elem)=>
                     VoxBox a -> [V.Vector elem] -> VTK Vec3D
@@ -135,7 +135,7 @@ renderVoxElemVTK vbox v = let
   color = U.concat $ map (\(fid, x) -> U.replicate (V.length x) fid) $ zip [(1::Int) ..] v
   rs    = V.map (renderVox vbext) $ V.concat v
   attr  = mkCellAttr "color" (\a _ _ -> color U.! a)
-  in mkUGVTK "MicroGraph" ps rs [] [attr]
+  in mkPolyDataVTK "MicroGraph" ps rs [] [attr]
 
 renderAllElemProp :: (RenderCell (VTKElem elem), RenderVox elem, HasPropValue prop)
                   => VoxBox a -> [prop (V.Vector elem)] -> VTK Vec3D
