@@ -107,6 +107,8 @@ Library
                     Hammer.MicroGraph
 
                     Hammer.VoxBox
+                    Hammer.VoxBox.Render
+
                     Hammer.VoxConn
 
                     Hammer.VTK
