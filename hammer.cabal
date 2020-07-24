@@ -113,6 +113,8 @@ Library
 
                     Hammer.VTK
 
+                    Hammer.Parallel.Vector
+
   other-modules:    Hammer.MicroGraph.Types
                     Hammer.MicroGraph.Base
                     Hammer.MicroGraph.GraphBuilder
