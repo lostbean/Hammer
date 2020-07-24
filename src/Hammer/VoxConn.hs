@@ -23,7 +23,6 @@ import           Data.HashMap.Strict            (HashMap)
 import           Data.Vector                    (Vector)
 
 import           Control.DeepSeq
-import           Control.Parallel.Strategies
 
 import           Hammer.Math.Array              (shuffleVector)
 import           Hammer.MicroGraph.Types        (GrainID, mkGrainID, unGrainID)
@@ -65,8 +64,7 @@ grainFinder isEqual vb@VoxBox{..} = let
 -- (typically 'Vector' or 'HashMap') and together with its 'VoxBoxRange', this function
 -- scans and group the connected neighbor voxels by given them a unique ID. The scan is
 -- based on a divide & conquer algorithm where the connected voxels are tested along the
--- boarder of the divided space. The algorithm can run in a multi-core device for extra
--- speed.
+-- boarder of the divided space.
 finderVoxConn :: ( Cont ic a, HasVoxConn c g, NFData (c Int), NFData g, GridConn g
                  )=> (a -> a -> Bool) -> ic a -> VoxBoxRange -> VoxConn c g
 finderVoxConn isEqual vec range = force $ go range
@@ -78,16 +76,10 @@ finderVoxConn isEqual vec range = force $ go range
       Nothing -> let
         (VoxBoxRange p _) = boxrange
         in initVoxConn vec range p
-      Just (vb1, vb2)
-        | sizeVoxBoxRange boxrange >= 500 -> run vb1 vb2 rpar
-        | otherwise                       -> run vb1 vb2 rseq
-        where
-        run vbA vbB strat = runEval $ do
-          b1 <- strat (go vbA)
-          b2 <- strat (go vbB)
-          rdeepseq b1
-          rdeepseq b2
-          return (merge b1 b2)
+      Just (vb1, vb2) -> let
+          b1 = go vb1
+          b2 = go vb2
+          in b1 `deepseq` b2 `deepseq` (merge b1 b2)
 
 -- | This function checks whether or not a given position @g@ is connected with its
 -- neighbors and returns the list of connected positions.
