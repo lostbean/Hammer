@@ -1,0 +1,11 @@
+packages:
+  .
+  ../linear-vect/
+  ../mcl/
+  ../VTK/
+  ../SubZero/
+  ../DeUni/
+  ../queryforest/
+  ../sledge/
+
+allow-newer: true
