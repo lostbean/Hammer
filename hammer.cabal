@@ -2,7 +2,7 @@ name:          hammer
 version:       0.4.0
 cabal-version: >=1.8
 build-type:    Simple
-license:       BSD3
+license:       MIT
 license-file:  LICENSE
 copyright:     (c) 2008-2011 Balazs Komuves (c) 2011 Edgar Gomes
 author:        Edgar Gomes de Araujo <talktoedgar at gmail dot com>
