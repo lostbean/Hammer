@@ -31,7 +31,6 @@ module Hammer.Math.SortSeq (
     getLoops,
 ) where
 
-import Control.Applicative ((<$>))
 import Control.Monad.ST (runST)
 import Data.Vector (Vector)
 

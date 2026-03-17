@@ -6,8 +6,10 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# OPTIONS_GHC -Wno-orphans #-}
 
 module Hammer.MicroGraph.Types (
     GrainID,
@@ -49,12 +51,16 @@ module Hammer.MicroGraph.Types (
     -- * HashMap manipulation
     insertUniqueHM,
     alterHM,
+
+    -- * Sort utilities (exposed for testing)
+    fast2DSort,
+    fast3DSort,
+    fast4DSort,
 ) where
 
 import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet as HS
 import qualified Data.IntSet as IS
-import qualified Data.List as L
 import qualified Data.Set as S
 
 import Control.Monad (liftM)
@@ -68,6 +74,7 @@ import GHC.Generics (Generic)
 
 import Control.DeepSeq
 import Data.Binary
+import Data.Kind (Type)
 
 -- import           Debug.Trace
 
@@ -347,25 +354,6 @@ fast2DSort v@(a, b)
     | a >= b = v
     | otherwise = (b, a)
 
--- Test fast sort for tuples
-testFast3 :: (Ord a) => (a, a, a) -> Bool
-testFast3 t@(x, y, z) =
-    let
-        unlist [a, b, c] = (a, b, c)
-        unlist _ = error "[GrainsGraph] Oops! List size different than 3"
-        func = all ((== fast3DSort t) . fast3DSort . unlist)
-     in
-        func $ L.permutations [x, y, z]
-
-testFast4 :: (Ord a) => (a, a, a, a) -> Bool
-testFast4 t@(x, y, z, w) =
-    let
-        unlist [a, b, c, d] = (a, b, c, d)
-        unlist _ = error "[GrainsGraph] Oops! List size different than 3"
-        func = all ((== fast4DSort t) . fast4DSort . unlist)
-     in
-        func $ L.permutations [x, y, z, w]
-
 -- ================================ Binary serialization  ================================
 
 instance Binary GrainID
@@ -396,8 +384,8 @@ that a level 'l' can decomposed in one or more 'SubLevel l'.
 EdgeID (1,2,3) -> FaceID (1,2), FaceID(2,3) and FaceID(1,3)
 -}
 class (Hashable (SubLevel l), Eq (SubLevel l)) => GrainHierarchy l where
-    type SubLevel l :: *
-    type SubLevelProp l :: * -> *
+    type SubLevel l :: Type
+    type SubLevelProp l :: Type -> Type
 
     {- | The function 'updateSubLevelProp' updates a 'SubLevelProp l a' based on
     by updating their reference to the level 'l'
@@ -438,7 +426,7 @@ class HasPropValue prop where
 -- ================================ HasPropConn Class ====================================
 
 class (HasPropValue prop) => HasPropConn prop where
-    type PropConn prop :: *
+    type PropConn prop :: Type
     getPropConn :: prop v -> Maybe (PropConn prop)
 
     getPropBoth :: prop v -> Maybe (v, PropConn prop)

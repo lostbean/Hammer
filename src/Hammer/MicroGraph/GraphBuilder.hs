@@ -3,21 +3,19 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# OPTIONS_GHC -Wno-orphans #-}
 
 module Hammer.MicroGraph.GraphBuilder (
     MicroVoxel,
     getMicroVoxel,
 ) where
 
+import Data.HashMap.Strict (HashMap)
 import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet as HS
-import qualified Data.Vector as V
-import qualified Hammer.Math.SparseMatrix as SP
-
-import Data.HashMap.Strict (HashMap)
 import Data.Maybe (catMaybes, mapMaybe)
 import Data.Vector (Vector)
-import Hammer.Math.SparseMatrix (Sparse3)
+import qualified Data.Vector as V
 
 import Data.List
 
@@ -25,8 +23,6 @@ import Hammer.MicroGraph.Base
 import Hammer.MicroGraph.Types
 import Hammer.VoxBox
 import Hammer.VoxConn
-
-import Debug.Trace
 
 -- dbg a = trace ("::::::>> " ++ show a) a
 
@@ -124,7 +120,7 @@ buildMicroVoxel eset fset mv (p, pid) =
         insertNewVertex pid p es mv'
 
 getFaces :: VoxBox GrainID -> V.Vector VoxelPos -> FaceElems
-getFaces vbox@VoxBox{..} = V.foldl' go []
+getFaces vbox@VoxBox{} = V.foldl' go []
   where
     go acc pos =
         let
@@ -183,7 +179,7 @@ getEdges (hmFID, _) = V.foldl' go []
             es ++ acc
 
 getVertex :: VoxBox GrainID -> EdgeSet -> V.Vector VoxelPos -> VertexElems
-getVertex vbox@VoxBox{..} (hmEID, _) =
+getVertex vbox@VoxBox{} (hmEID, _) =
     let
         go acc pos =
             let
@@ -277,45 +273,6 @@ getExtVBR vbr =
 -- -------------------------- Scan Faces ---------------------------------------
 
 type FaceSet = (HashMap FacePos FaceID, HashMap FaceID (Vector FacePos))
-
-fp2spIn :: FaceVoxelPos -> (Int, Int, Int)
-fp2spIn = vp2spIn . toFacePos
-
-vp2spIn :: VoxelPos -> (Int, Int, Int)
-vp2spIn (VoxelPos x y z) = (x, y, z)
-
-groupFacesSP :: VoxBoxRange -> [(FaceVoxelPos, FaceID)] -> FaceSet
-groupFacesSP vbr fs =
-    let
-        (so, sd) =
-            let
-                VoxelPos x0 y0 z0 = vbrOrigin vbr
-                VoxBoxDim dx dy dz = vbrDim vbr
-             in
-                (SP.Sparse3Org (x0, y0, z0), SP.Sparse3Dim (dx, dy, dz))
-
-        hmf :: Sparse3 FaceID
-        hmf = SP.mkSparse3 so sd . V.map (\(!k, !v) -> (fp2spIn k, v)) $ V.fromList fs
-
-        faces :: VoxConn Sparse3 FacePos
-        faces = finderVoxConn (==) hmf vbrf
-
-        foo acc@(accPOS, accFID) k v = case SP.lookup (vp2spIn $ vbrf %# k) hmf of
-            Just fid ->
-                let
-                    newAccPOS = V.foldl' (\acu p -> HM.insert p finalFID acu) accPOS v
-                    (finalFID, newAccFID) = insertUniqueHM v fid getAlterFaceID accFID
-                 in
-                    (newAccPOS, newAccFID)
-            _ -> acc
-
-        vbrf = getExtVBR vbr
-        zeroSet = (HM.empty, HM.empty)
-     in
-        -- (HashMap Int (Vector grid))
-        case voxConnList faces of
-            Just x -> HM.foldlWithKey' foo zeroSet x
-            _ -> zeroSet
 
 groupFaces :: VoxBoxRange -> [(FaceVoxelPos, FaceID)] -> FaceSet
 groupFaces vbr fs =

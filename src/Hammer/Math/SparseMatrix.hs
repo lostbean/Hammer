@@ -40,7 +40,7 @@ import Control.DeepSeq
 import Control.Monad.Primitive (PrimMonad, PrimState)
 import Control.Monad.ST (runST)
 import Data.Function (on)
-import Data.Maybe (isJust)
+import Data.Maybe (fromJust, isJust)
 
 data Sparse3 a
     = Sparse3
@@ -91,7 +91,7 @@ empty so sd =
 mkSparse3 :: Sparse3Org -> Sparse3Dim -> V.Vector ((Int, Int, Int), a) -> Sparse3 a
 mkSparse3 so sd vec =
     let
-        invec = V.map (\(Just a, b) -> (a, b)) . V.filter (isJust . fst) $ V.map (first (toLocalPos so sd)) vec
+        invec = V.map (\(x, b) -> (fromJust x, b)) . V.filter (isJust . fst) $ V.map (first (toLocalPos so sd)) vec
         svec = V.modify (VA.sortBy (compare `on` fst)) invec
         xyspace = getXYRange sd
         zsize = V.length svec
@@ -136,7 +136,7 @@ lookup t sp = (sparse3Value sp V.!) <$> getZIndex t sp
 adjust :: V.Vector ((Int, Int, Int), a) -> Sparse3 a -> Sparse3 a
 adjust vec sp =
     let
-        foo = V.map (\(Just i, x) -> (i, x)) . V.filter (isJust . fst) . V.map (\(t, x) -> (getZIndex t sp, x))
+        foo = V.map (\(i, x) -> (fromJust i, x)) . V.filter (isJust . fst) . V.map (\(t, x) -> (getZIndex t sp, x))
         sv = V.update (sparse3Value sp) (foo vec)
      in
         sp{sparse3Value = sv}

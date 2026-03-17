@@ -13,8 +13,8 @@ import qualified Data.HashMap.Strict as HM
 import qualified Data.Vector as V
 import qualified Data.Vector.Unboxed as U
 
+import Data.Kind (Type)
 import Data.Maybe (mapMaybe)
-import Data.Monoid ((<>))
 import Data.VTK
 import Data.Vector.Unboxed (Unbox, Vector)
 import Linear.Mat
@@ -28,7 +28,7 @@ import Hammer.VoxBox
 newtype VoxBoxExt a = VoxBoxExt (VoxBox a)
 
 class (Unbox elem, Unbox (VTKElem elem)) => RenderVox elem where
-    type VTKElem elem :: *
+    type VTKElem elem :: Type
     renderVox :: VoxBoxExt a -> elem -> VTKElem elem
 
 instance RenderVox FaceVoxelPos where
