@@ -21,31 +21,28 @@ spec = do
 
         it "mergeSparse3_X" $ do
             let m = mergeSparse3 testR testX
-            m `shouldSatisfy` \case
-                Just _ -> True
-                Nothing -> False
-            let Just merged = m
-            Hammer.Math.SparseMatrix.lookup (0, 0, 0) merged `shouldBe` Just 10
-            Hammer.Math.SparseMatrix.lookup (4, 0, 0) merged `shouldBe` Just 11
-            Hammer.Math.SparseMatrix.lookup (4, 1, 1) merged `shouldBe` Just 1
+            case m of
+                Nothing -> expectationFailure "mergeSparse3_X failed"
+                Just merged -> do
+                    Hammer.Math.SparseMatrix.lookup (0, 0, 0) merged `shouldBe` Just 10
+                    Hammer.Math.SparseMatrix.lookup (4, 0, 0) merged `shouldBe` Just 11
+                    Hammer.Math.SparseMatrix.lookup (4, 1, 1) merged `shouldBe` Just 1
 
         it "mergeSparse3_Y" $ do
             let m = mergeSparse3 testR testY
-            m `shouldSatisfy` \case
-                Just _ -> True
-                Nothing -> False
-            let Just merged = m
-            Hammer.Math.SparseMatrix.lookup (0, 0, 0) merged `shouldBe` Just 10
-            Hammer.Math.SparseMatrix.lookup (0, 4, 0) merged `shouldBe` Just 12
+            case m of
+                Nothing -> expectationFailure "mergeSparse3_Y failed"
+                Just merged -> do
+                    Hammer.Math.SparseMatrix.lookup (0, 0, 0) merged `shouldBe` Just 10
+                    Hammer.Math.SparseMatrix.lookup (0, 4, 0) merged `shouldBe` Just 12
 
         it "mergeSparse3_Z" $ do
             let m = mergeSparse3 testR testZ
-            m `shouldSatisfy` \case
-                Just _ -> True
-                Nothing -> False
-            let Just merged = m
-            Hammer.Math.SparseMatrix.lookup (0, 0, 0) merged `shouldBe` Just 10
-            Hammer.Math.SparseMatrix.lookup (0, 0, 4) merged `shouldBe` Just 13
+            case m of
+                Nothing -> expectationFailure "mergeSparse3_Z failed"
+                Just merged -> do
+                    Hammer.Math.SparseMatrix.lookup (0, 0, 0) merged `shouldBe` Just 10
+                    Hammer.Math.SparseMatrix.lookup (0, 0, 4) merged `shouldBe` Just 13
 
         it "adjust works" $ do
             let s = adjust (V.fromList [((0, 0, 0), 20 :: Int)]) testR

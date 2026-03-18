@@ -2,10 +2,7 @@
 
 module MicroGraphSpec (spec) where
 
-import qualified Data.HashMap.Strict as HM
 import Hammer.MicroGraph
-import Hammer.MicroGraph.Base
-import Hammer.MicroGraph.Types
 import Test.Hspec
 
 spec :: Spec
@@ -34,11 +31,7 @@ spec = do
                 _ -> expectationFailure "Expected FaceProp"
 
         it "insertNewVertex and insertNewEdge" $ do
-            let gid1 = mkGrainID 1
-                gid2 = mkGrainID 2
-                gid3 = mkGrainID 3
-                gid4 = mkGrainID 4
-                f12 = mkFaceID (1, 2)
+            let f12 = mkFaceID (1, 2)
                 f23 = mkFaceID (2, 3)
                 f13 = mkFaceID (1, 3)
                 vid = mkVertexID (1, 2, 3, 4)

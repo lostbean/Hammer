@@ -4,11 +4,9 @@ module VoxConnSpec (spec) where
 
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Vector.Unboxed as U
-import Hammer.MicroGraph.Types
 import Hammer.VoxBox
 import Hammer.VoxConn
 import Test.Hspec
-import Test.QuickCheck
 
 spec :: Spec
 spec = do
