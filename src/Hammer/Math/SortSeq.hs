@@ -70,6 +70,10 @@ class (Eq a) => SeqComp a where
     seqComp :: a -> a -> Bool
     seqComp = (==)
 
+instance SeqComp Int
+instance SeqComp Double
+instance SeqComp Float
+
 {- | 'Seq' holds the results of the sorting algorithm by classifying it in open or closed
 sequences.
 -}
