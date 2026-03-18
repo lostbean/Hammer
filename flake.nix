@@ -33,6 +33,7 @@
             haskellStack
             pkgs.pkg-config
             pkgs.zlib
+            pkgs.lefthook
             treefmtWrapper.config.build.wrapper
             pkgs.nixpkgs-fmt
           ];
