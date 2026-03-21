@@ -18,7 +18,7 @@ source-repository-package
 source-repository-package
   type: git
   location: https://github.com/lostbean/SubZero
-  tag: 84f08849f872acb720ac2f29f62b1a0b9522d02f
+  tag: 807b43a437b01fa791fec38c36829c8436aa19ce
 
 source-repository-package
   type: git
@@ -33,6 +33,6 @@ source-repository-package
 source-repository-package
   type: git
   location: https://github.com/lostbean/sledge
-  tag: d884323e29ad062561a3174b032e37baed8f74cd
+  tag: 79cf5fbe14f7e19e6e454bb7e5ff2e6f969e6e14
 
 allow-newer: *:base, *:template-haskell, *:ghc-prim, *:bytestring, *:text, *:containers, *:time
